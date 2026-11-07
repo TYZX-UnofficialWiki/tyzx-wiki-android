@@ -32,7 +32,6 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.RenderEffect
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -258,14 +257,18 @@ private fun GlassLens(
 ) {
     val density = LocalDensity.current
     val shader = remember { RuntimeShader(LENS_AGSL) }
-    val blurRadius = with(density) { 14.dp }
+    val blurRadiusPx = with(density) { 14.dp.toPx() }
 
-    // 先让着色器做折射+色散，再整体柔化，接近录屏里的“透过厚玻璃看”的糊感
-    val lensEffect = remember(shader, blurRadius) {
-        RenderEffect.createChainEffect(
-            RenderEffect.createRuntimeShaderEffect(shader, "content"),
-            RenderEffect.createBlurEffect(blurRadius, blurRadius, TileMode.Clamp),
-        )
+    // 先让 AGSL 做折射+色散，再整体柔化，接近录屏里“透过厚玻璃看”的糊感
+    val lensEffect = remember(shader, blurRadiusPx) {
+        android.graphics.RenderEffect.createChainEffect(
+            android.graphics.RenderEffect.createRuntimeShaderEffect(shader, "content"),
+            android.graphics.RenderEffect.createBlurEffect(
+                blurRadiusPx,
+                blurRadiusPx,
+                android.graphics.Shader.TileMode.CLAMP,
+            ),
+        ).asComposeRenderEffect()
     }
 
     Box(
