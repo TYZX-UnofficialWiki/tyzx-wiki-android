@@ -256,24 +256,29 @@ private fun GlassLens(
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
-    val shader = remember { RuntimeShader(LENS_AGSL) }
+    // 着色器编译失败也不该崩，降级成半透明平板
+    val shader = remember { runCatching { RuntimeShader(LENS_AGSL) }.getOrNull() }
     val blurRadiusPx = with(density) { 14.dp.toPx() }
 
     // 先让 AGSL 做折射+色散，再整体柔化，接近录屏里“透过厚玻璃看”的糊感
     val lensEffect = remember(shader, blurRadiusPx) {
-        android.graphics.RenderEffect.createChainEffect(
-            android.graphics.RenderEffect.createRuntimeShaderEffect(shader, "content"),
-            android.graphics.RenderEffect.createBlurEffect(
-                blurRadiusPx,
-                blurRadiusPx,
-                android.graphics.Shader.TileMode.CLAMP,
-            ),
-        ).asComposeRenderEffect()
+        shader?.let { s ->
+            runCatching {
+                android.graphics.RenderEffect.createChainEffect(
+                    android.graphics.RenderEffect.createRuntimeShaderEffect(s, "content"),
+                    android.graphics.RenderEffect.createBlurEffect(
+                        blurRadiusPx,
+                        blurRadiusPx,
+                        android.graphics.Shader.TileMode.CLAMP,
+                    ),
+                ).asComposeRenderEffect()
+            }.getOrNull()
+        }
     }
 
     Box(
         modifier.graphicsLayer {
-            renderEffect = lensEffect
+            lensEffect?.let { renderEffect = it }
             clip = true
             shape = RoundedCornerShape(percent = 50)
             compositingStrategy = CompositingStrategy.Offscreen
@@ -283,6 +288,11 @@ private fun GlassLens(
             val w = size.width
             val h = size.height
             if (w <= 0f || h <= 0f) return@Canvas
+
+            if (shader == null) {
+                drawRect(Color(0xFF2A2731).copy(alpha = 0.72f))
+                return@Canvas
+            }
 
             shader.setFloatUniform("size", w, h)
             shader.setFloatUniform("cornerRadii", h / 2f, h / 2f, h / 2f, h / 2f)
