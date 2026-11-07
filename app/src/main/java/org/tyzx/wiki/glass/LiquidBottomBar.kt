@@ -11,6 +11,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,7 +19,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -27,9 +27,12 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -51,9 +54,10 @@ private val LENS_H = 78.dp
 private val H_PAD = 14.dp
 
 /**
- * 底栏：静止是 Material 3 Expressive 的 tonal 胶囊，按下才“液化”成玻璃透镜，松手凝固回平涂。
+ * 底栏：静止是 Material 3 Expressive 的 tonal 胶囊；按下才“液化”成玻璃透镜，
+ * 拖动时跟着手指走，松手凝固回平涂。
  *
- * 通过 [backdrop] 拿到下层内容的录制结果，透镜据此做模糊 + 折射 + 色散。
+ * [backdrop] 是下层内容的录制结果，透镜据此做模糊 + 折射 + 色散。
  */
 @Composable
 fun LiquidBottomBar(
@@ -64,16 +68,28 @@ fun LiquidBottomBar(
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
     var barOrigin by remember { mutableStateOf(Offset.Zero) }
 
-    val press = remember { Animatable(0f) }
-    val lensX = remember { Animatable(0f) }
+    var pressed by remember { mutableStateOf(false) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragX by remember { mutableFloatStateOf(0f) }
     var stretchTarget by remember { mutableFloatStateOf(1f) }
+
+    // 按下快（≈90ms 起）、松手慢（≈200ms 收），实测录屏 8 帧 ≈270ms
+    val press by animateFloatAsState(
+        targetValue = if (pressed) 1f else 0f,
+        animationSpec = tween(durationMillis = if (pressed) 90 else 200),
+        label = "press",
+    )
     val stretch by animateFloatAsState(
         targetValue = stretchTarget,
         animationSpec = spring(dampingRatio = 0.9f, stiffness = 900f),
         label = "stretch",
     )
+
+    val lensX = remember { Animatable(0f) }
+    val currentX = if (dragging) dragX else lensX.value
 
     BoxWithConstraints(
         modifier = modifier
@@ -88,16 +104,14 @@ fun LiquidBottomBar(
         val pillWPx = tabW - with(density) { 12.dp.toPx() }
         val pillHPx = with(density) { PILL_H.toPx() }
         val lensHPx = with(density) { LENS_H.toPx() }
+        val barHPx = with(density) { BAR_H.toPx() }
 
         fun centerOf(i: Int) = hPadPx + tabW * (i + 0.5f)
 
-        LaunchedEffect(Unit) {
-            lensX.snapTo(centerOf(selected.coerceIn(0, n - 1)))
-        }
-
-        // 布局尺寸变化时重新对齐
-        LaunchedEffect(wPx, n) {
-            if (press.value < 0.5f) lensX.snapTo(centerOf(selected.coerceIn(0, n - 1)))
+        LaunchedEffect(wPx, n, selected) {
+            if (!pressed && !dragging) {
+                lensX.snapTo(centerOf(selected.coerceIn(0, n - 1)))
+            }
         }
 
         Box(
@@ -107,12 +121,13 @@ fun LiquidBottomBar(
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val startX = down.position.x.coerceIn(centerOf(0), centerOf(n - 1))
-                        press.snapTo(1f)
-                        lensX.snapTo(startX)
+                        pressed = true
+                        dragging = true
+                        dragX = startX
 
                         var lastX = startX
                         var lastUptime = down.uptimeMillis
-                        var dragged = false
+                        var moved = false
 
                         while (true) {
                             val event = awaitPointerEvent()
@@ -123,10 +138,10 @@ fun LiquidBottomBar(
                             }
                             val dx = change.position.x - lastX
                             val dt = (change.uptimeMillis - lastUptime).coerceAtLeast(1L)
-                            if (abs(dx) > 2f) dragged = true
-                            if (dragged) {
+                            if (abs(dx) > 2f) moved = true
+                            if (moved) {
                                 lastX = change.position.x
-                                lensX.snapTo(lastX)
+                                dragX = lastX
                                 val speed = abs(dx) / dt.toFloat()
                                 stretchTarget = (1f + speed * 0.22f).coerceIn(1f, 1.30f)
                                 change.consume()
@@ -134,13 +149,17 @@ fun LiquidBottomBar(
                             lastUptime = change.uptimeMillis
                         }
 
-                        val target = ((lastX - hPadPx) / tabW).toInt().coerceIn(0, n - 1)
+                        val target = ((dragX - hPadPx) / tabW).toInt().coerceIn(0, n - 1)
                         stretchTarget = 1f
-                        press.animateTo(0f, tween(durationMillis = 200))
-                        lensX.animateTo(
-                            targetValue = centerOf(target),
-                            animationSpec = spring(dampingRatio = 0.78f, stiffness = 420f),
-                        )
+                        pressed = false
+                        dragging = false
+                        scope.launch {
+                            lensX.snapTo(dragX)
+                            lensX.animateTo(
+                                targetValue = centerOf(target),
+                                animationSpec = spring(dampingRatio = 0.78f, stiffness = 420f),
+                            )
+                        }
                         if (target != selected) onSelected(target)
                     }
                 }
@@ -164,12 +183,12 @@ fun LiquidBottomBar(
                     style = Stroke(width = 1.dp.toPx()),
                 )
 
-                val flat = 1f - press.value
+                val flat = 1f - press
                 if (flat > 0.01f) {
                     val pillW = pillWPx * stretch
                     drawRoundRect(
                         color = PillColor.copy(alpha = flat),
-                        topLeft = Offset(lensX.value - pillW / 2f, (size.height - pillHPx) / 2f),
+                        topLeft = Offset(currentX - pillW / 2f, (size.height - pillHPx) / 2f),
                         size = Size(pillW, pillHPx),
                         cornerRadius = CornerRadius(pillHPx / 2f, pillHPx / 2f),
                     )
@@ -208,20 +227,17 @@ fun LiquidBottomBar(
             }
 
             // 3. 玻璃透镜
-            val p = press.value
-            if (p > 0.01f) {
-                val lensW = (pillWPx * stretch * (1f + 0.06f * p)).coerceAtLeast(1f)
-                val lensH = pillHPx + (lensHPx - pillHPx) * p
-                val left = lensX.value - lensW / 2f
-                val top = (with(density) { BAR_H.toPx() } - lensH) / 2f
+            if (press > 0.01f) {
+                val lensW = (pillWPx * stretch * (1f + 0.06f * press)).coerceAtLeast(1f)
+                val lensH = pillHPx + (lensHPx - pillHPx) * press
+                val left = currentX - lensW / 2f
+                val top = (barHPx - lensH) / 2f
 
                 GlassLens(
                     backdrop = backdrop,
                     absoluteLeft = barOrigin.x + left,
                     absoluteTop = barOrigin.y + top,
-                    widthPx = lensW,
-                    heightPx = lensH,
-                    progress = p,
+                    alpha = press,
                     modifier = Modifier
                         .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
                         .size(
@@ -239,21 +255,14 @@ private fun GlassLens(
     backdrop: GraphicsLayer,
     absoluteLeft: Float,
     absoluteTop: Float,
-    widthPx: Float,
-    heightPx: Float,
-    progress: Float,
+    alpha: Float,
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
     val shader = remember { RuntimeShader(LENS_AGSL) }
-    val shape = RoundedCornerShape(percent = 50)
 
-    Box(modifier) {
-        Canvas(
-            Modifier
-                .fillMaxSize()
-                .clip(shape)
-        ) {
+    Box(modifier.clip(RoundedCornerShape(percent = 50))) {
+        Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
             if (w <= 0f || h <= 0f) return@Canvas
@@ -275,19 +284,18 @@ private fun GlassLens(
             )
 
             drawIntoCanvas { canvas ->
-                val paint = Paint()
-                paint.asFrameworkPaint().setRenderEffect(effect)
-                canvas.saveLayer(Rect(0f, 0f, w, h), paint)
+                val fp = android.graphics.Paint()
+                fp.renderEffect = effect
+                val saveCount = canvas.nativeCanvas.saveLayer(0f, 0f, w, h, fp)
                 translate(-absoluteLeft, -absoluteTop) {
                     drawLayer(backdrop)
                 }
-                canvas.restore()
+                canvas.nativeCanvas.restoreToCount(saveCount)
             }
         }
 
         // 彩虹描边 + 高光
         Canvas(Modifier.fillMaxSize()) {
-            val alpha = progress
             val rimWidth = 2.2.dp.toPx()
             val brush = Brush.sweepGradient(
                 0.00f to Color(0xFFFF8A4C),
@@ -307,7 +315,6 @@ private fun GlassLens(
                 color = Color.White.copy(alpha = 0.16f * alpha),
                 style = Stroke(width = 1.dp.toPx()),
             )
-            // 顶部内高光
             drawRoundRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(Color.White.copy(alpha = 0.10f * alpha), Color.Transparent),
