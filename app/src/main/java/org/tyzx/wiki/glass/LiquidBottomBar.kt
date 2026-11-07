@@ -1,8 +1,6 @@
 package org.tyzx.wiki.glass
 
-import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
-import android.graphics.Shader as AndroidShader
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -21,11 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -36,6 +32,8 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.RenderEffect
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -260,8 +258,24 @@ private fun GlassLens(
 ) {
     val density = LocalDensity.current
     val shader = remember { RuntimeShader(LENS_AGSL) }
+    val blurRadius = with(density) { 14.dp }
 
-    Box(modifier.clip(RoundedCornerShape(percent = 50))) {
+    // 先让着色器做折射+色散，再整体柔化，接近录屏里的“透过厚玻璃看”的糊感
+    val lensEffect = remember(shader, blurRadius) {
+        RenderEffect.createChainEffect(
+            RenderEffect.createRuntimeShaderEffect(shader, "content"),
+            RenderEffect.createBlurEffect(blurRadius, blurRadius, TileMode.Clamp),
+        )
+    }
+
+    Box(
+        modifier.graphicsLayer {
+            renderEffect = lensEffect
+            clip = true
+            shape = RoundedCornerShape(percent = 50)
+            compositingStrategy = CompositingStrategy.Offscreen
+        }
+    ) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
@@ -269,28 +283,13 @@ private fun GlassLens(
 
             shader.setFloatUniform("size", w, h)
             shader.setFloatUniform("cornerRadii", h / 2f, h / 2f, h / 2f, h / 2f)
-            shader.setFloatUniform("refractionHeight", with(density) { 34.dp.toPx() })
-            shader.setFloatUniform("refractionAmount", with(density) { 20.dp.toPx() })
+            shader.setFloatUniform("refractionHeight", 34.dp.toPx())
+            shader.setFloatUniform("refractionAmount", 20.dp.toPx())
             shader.setFloatUniform("depthEffect", 0.22f)
             shader.setFloatUniform("chromaticAberration", 1.15f)
 
-            val effect = RenderEffect.createChainEffect(
-                RenderEffect.createRuntimeShaderEffect(shader, "content"),
-                RenderEffect.createBlurEffect(
-                    with(density) { 16.dp.toPx() },
-                    with(density) { 16.dp.toPx() },
-                    AndroidShader.TileMode.CLAMP,
-                ),
-            )
-
-            drawIntoCanvas { canvas ->
-                val fp = android.graphics.Paint()
-                fp.renderEffect = effect
-                val saveCount = canvas.nativeCanvas.saveLayer(0f, 0f, w, h, fp)
-                translate(-absoluteLeft, -absoluteTop) {
-                    drawLayer(backdrop)
-                }
-                canvas.nativeCanvas.restoreToCount(saveCount)
+            translate(-absoluteLeft, -absoluteTop) {
+                drawLayer(backdrop)
             }
         }
 
