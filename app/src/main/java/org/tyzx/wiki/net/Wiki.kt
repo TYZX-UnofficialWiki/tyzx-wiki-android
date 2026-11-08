@@ -320,6 +320,8 @@ object Wiki {
         return RegResult(msg, needsCaptcha, false)
     }
 
+    suspend fun csrf(): String = token("csrf")
+
     /** 返回 (wikitext, 最新版本号)。 */
     suspend fun pageSource(title: String): Pair<String, Long> {
         val j = JSONObject(raw("$REST/page/" + enc(title)))
