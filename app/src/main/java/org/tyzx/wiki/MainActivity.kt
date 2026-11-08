@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -271,7 +271,7 @@ private fun EntryRow(title: String, desc: String) {
             Spacer(Modifier.height(3.dp))
             Text(desc, color = TextSecondary, fontSize = 12.sp, maxLines = 1)
         }
-        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = TextSecondary.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+        Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = TextSecondary.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
     }
 }
 
