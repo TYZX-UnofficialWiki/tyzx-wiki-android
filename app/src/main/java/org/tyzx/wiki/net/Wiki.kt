@@ -497,10 +497,8 @@ object Wiki {
     }
 
     /** 可视化编辑保存前的关键一步：把改过的 HTML 交回 Parsoid 转成 wikitext。 */
-    suspend fun htmlToWikitext(title: String, html: String): String {
-        postText(
-            "$REST/transform/html/to/wikitext/" + enc(title),
-            JSONObject().put("html", html).toString(),
-        )
-    }
+    suspend fun htmlToWikitext(title: String, html: String): String = postText(
+        "$REST/transform/html/to/wikitext/" + enc(title),
+        JSONObject().put("html", html).toString(),
+    )
 }
