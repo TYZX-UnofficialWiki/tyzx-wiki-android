@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import coil3.compose.AsyncImage
@@ -121,7 +122,7 @@ fun ReaderScreen(title: String, onBack: () -> Unit, onOpen: (String) -> Unit) {
     }
 }
 
-private fun Modifier.clip100() = this.then(androidx.compose.ui.draw.clip(CircleShape))
+private fun Modifier.clip100() = clip(CircleShape)
 
 @Composable
 private fun BlockView(block: Block, onOpen: (String) -> Unit) {
@@ -239,8 +240,7 @@ private fun BlockView(block: Block, onOpen: (String) -> Unit) {
     }
 }
 
-private fun Modifier.clip1002(shape: androidx.compose.ui.graphics.Shape) =
-    this.then(androidx.compose.ui.draw.clip(shape))
+private fun Modifier.clip1002(shape: androidx.compose.ui.graphics.Shape) = clip(shape)
 
 private fun androidx.compose.ui.graphics.Color.lum(): Float =
     0.299f * red + 0.587f * green + 0.114f * blue
