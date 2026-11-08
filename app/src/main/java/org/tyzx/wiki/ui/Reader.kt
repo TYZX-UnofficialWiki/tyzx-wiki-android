@@ -220,7 +220,7 @@ fun ReaderScreen(
                     val d = doc
                     if (d != null && wv.tag != d) {
                         wv.tag = d
-                        wv.loadDataWithBaseURL(Wiki.HOST, d, "text/html", "utf-8", null)
+                        wv.loadDataWithBaseURL(Wiki.HOST + "/", d, "text/html", "utf-8", null)
                     }
                 },
             )

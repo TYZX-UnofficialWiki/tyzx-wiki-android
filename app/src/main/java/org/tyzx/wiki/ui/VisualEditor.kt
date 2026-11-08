@@ -177,7 +177,7 @@ fun VisualEditorScreen(
                             setBackgroundColor(0x00000000)
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
-                            loadDataWithBaseURL(Wiki.HOST, d, "text/html", "utf-8", null)
+                            loadDataWithBaseURL(Wiki.HOST + "/", d, "text/html", "utf-8", null)
                             web = this
                         }
                     },
