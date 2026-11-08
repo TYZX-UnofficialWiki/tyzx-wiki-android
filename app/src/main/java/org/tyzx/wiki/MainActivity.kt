@@ -5,18 +5,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,31 +33,37 @@ import org.tyzx.wiki.glass.TyBottomBar
 import org.tyzx.wiki.glass.TyTab
 import org.tyzx.wiki.glass.liquidtabs.LiquidGlassStyle
 
-// 四层表面语义：页面 T9 / 卡片 T18 / 内嵌 T12 / 模态 T15
-private val Page = Color(0xFF121016)
-private val Card = Color(0xFF1D1A22)
-private val Inset = Color(0xFF26222C)
-private val Modal = Color(0xFF2B2733)
-private val TextPrimary = Color(0xFFE8E3EC)
-private val TextSecondary = Color(0xFFA9A3B5)
-private val Accent = Color(0xFFD0BCFF)
-
+// 四层表面语义（照 BiliTools AppSurfaces 的取值区间）：页面 / 卡片 / 内嵌 / 模态
 private val DarkColors = darkColorScheme(
-    primary = Accent,
+    primary = Color(0xFFD0BCFF),
     onPrimary = Color(0xFF1D192B),
-    secondary = Color(0xFFCCC2DC),
-    background = Page,
-    surface = Page,
+    background = Color(0xFF121016),        // page  T94
+    surface = Color(0xFF121016),
     surfaceContainerLowest = Color(0xFF0C0A10),
-    surfaceContainerLow = Page,
-    surfaceContainer = Card,
-    surfaceContainerHigh = Modal,
-    surfaceContainerHighest = Color(0xFF3A3444),
-    surfaceBright = Card,
-    onBackground = TextPrimary,
-    onSurface = TextPrimary,
-    onSurfaceVariant = TextSecondary,
+    surfaceContainerLow = Color(0xFF17141C),
+    surfaceContainer = Color(0xFF1D1A22),  // card  T98
+    surfaceContainerHigh = Color(0xFF26222C), // inset T95
+    surfaceContainerHighest = Color(0xFF2B2733), // modal T90
+    surfaceBright = Color(0xFF1D1A22),
+    onSurface = Color(0xFFE8E3EC),
+    onSurfaceVariant = Color(0xFFA9A3B5),
     outlineVariant = Color(0xFF3A3542),
+)
+
+private val LightColors = lightColorScheme(
+    primary = Color(0xFF6750A4),
+    onPrimary = Color(0xFFFFFFFF),
+    background = Color(0xFFF5F5FA),        // page
+    surface = Color(0xFFF5F5FA),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFFAFAFD),
+    surfaceContainer = Color(0xFFFFFFFF),  // card
+    surfaceContainerHigh = Color(0xFFEDEDF3), // inset
+    surfaceContainerHighest = Color(0xFFE4E4EC), // modal
+    surfaceBright = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF1B1B21),
+    onSurfaceVariant = Color(0xFF5D5D68),
+    outlineVariant = Color(0xFFD5D5DE),
 )
 
 private val Tabs = listOf(
@@ -63,7 +71,7 @@ private val Tabs = listOf(
     TyTab("设置", Icons.Filled.Settings),
 )
 
-/** 中文站现有的全部条目，先用真实内容把页面撑起来 */
+/** 中文站现有的全部条目 */
 private val Entries = listOf(
     "首页" to "站点导航与近期更新",
     "天一中学" to "学校的概况、历史与现状",
@@ -93,13 +101,15 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun App() {
-    MaterialTheme(colorScheme = DarkColors) {
+    var dark by remember { mutableStateOf(false) }
+    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors) {
+        val cs = MaterialTheme.colorScheme
         val backdrop = rememberLayerBackdrop()
         var tab by remember { mutableIntStateOf(0) }
 
-        Box(Modifier.fillMaxSize().background(Page)) {
+        Box(Modifier.fillMaxSize().background(cs.background)) {
             Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
-                if (tab == 0) HomePage() else SettingsPage()
+                if (tab == 0) HomePage() else SettingsPage(dark) { dark = it }
             }
 
             TyBottomBar(
@@ -113,7 +123,7 @@ fun App() {
                     refractionAmountFrac = 0.35f,
                     chromaticAberration = true,
                 ),
-                surfaceAlpha = 0.30f,
+                surfaceAlpha = if (dark) 0.30f else 0.55f,
             )
         }
     }
@@ -142,7 +152,7 @@ private fun HomePage() {
         item {
             Text(
                 text = "本站内容来自 wiki.tyzx.org，本应用为非官方客户端",
-                color = TextSecondary.copy(alpha = 0.6f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
@@ -151,7 +161,8 @@ private fun HomePage() {
 }
 
 @Composable
-private fun SettingsPage() {
+private fun SettingsPage(dark: Boolean, onDarkChange: (Boolean) -> Unit) {
+    val cs = MaterialTheme.colorScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 140.dp),
@@ -161,14 +172,27 @@ private fun SettingsPage() {
         item { SearchField("搜索设置…") }
 
         item { Spacer(Modifier.height(28.dp)) }
+        item { SectionLabel("外观") }
+        item {
+            GroupCard {
+                SettingRow(
+                    title = "主题",
+                    subtitle = if (dark) "深色" else "浅色",
+                    trailing = "切换",
+                    onClick = { onDarkChange(!dark) },
+                )
+                Hairline()
+                SettingRow("字号", "跟随系统", "标准")
+            }
+        }
+
+        item { Spacer(Modifier.height(24.dp)) }
         item { SectionLabel("阅读") }
         item {
             GroupCard {
-                SettingRow("字号", "跟随系统", "18")
+                SettingRow("只读模式", "不提供编辑入口", "开")
                 Hairline()
-                SettingRow("主题", "深色", "18")
-                Hairline()
-                SettingRow("只读模式", "不提供编辑入口", "18")
+                SettingRow("外链", "在应用内打开", "开")
             }
         }
 
@@ -176,9 +200,9 @@ private fun SettingsPage() {
         item { SectionLabel("离线") }
         item {
             GroupCard {
-                SettingRow("已缓存", "0 个页面", "18")
+                SettingRow("已缓存", "0 个页面", "")
                 Hairline()
-                SettingRow("清除缓存", "连同缩略图一起删除", "18")
+                SettingRow("清除缓存", "连同缩略图一起删除", "")
             }
         }
 
@@ -186,11 +210,11 @@ private fun SettingsPage() {
         item { SectionLabel("关于") }
         item {
             GroupCard {
-                SettingRow("版本", "0.0.2-debug", "18")
+                SettingRow("版本", "0.0.4-debug", "")
                 Hairline()
-                SettingRow("开源许可", "GPL-3.0 · 含 BiliTools、Backdrop", "18")
+                SettingRow("开源许可", "GPL-3.0 · 含 BiliTools、Backdrop", "")
                 Hairline()
-                SettingRow("非官方声明", "与天一中学官方无关", "18")
+                SettingRow("非官方声明", "与天一中学官方无关", "")
             }
         }
     }
@@ -198,29 +222,36 @@ private fun SettingsPage() {
 
 @Composable
 private fun PageHeader(title: String, subtitle: String) {
+    val cs = MaterialTheme.colorScheme
     Column {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Spacer(Modifier.height(28.dp))
-        Text(title, color = TextPrimary, fontSize = 34.sp, fontWeight = FontWeight.SemiBold)
+        Text(title, color = cs.onSurface, fontSize = 34.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(6.dp))
-        Text(subtitle, color = TextSecondary, fontSize = 14.sp)
+        Text(subtitle, color = cs.onSurfaceVariant, fontSize = 14.sp)
     }
 }
 
 @Composable
 private fun SearchField(hint: String) {
+    val cs = MaterialTheme.colorScheme
     Row(
         Modifier
             .fillMaxWidth()
             .height(52.dp)
             .clip(RoundedCornerShape(26.dp))
-            .background(Inset)
+            .background(cs.surfaceContainerHigh)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Filled.Search, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+        Icon(
+            Icons.Filled.Search,
+            contentDescription = null,
+            tint = cs.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
         Spacer(Modifier.width(10.dp))
-        Text(hint, color = TextSecondary, fontSize = 15.sp)
+        Text(hint, color = cs.onSurfaceVariant, fontSize = 15.sp)
     }
 }
 
@@ -228,7 +259,7 @@ private fun SearchField(hint: String) {
 private fun SectionLabel(text: String) {
     Text(
         text = text,
-        color = TextSecondary,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
         modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
@@ -241,7 +272,7 @@ private fun GroupCard(content: @Composable ColumnScope.() -> Unit) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(Card),
+            .background(MaterialTheme.colorScheme.surfaceContainer),
         content = content,
     )
 }
@@ -253,12 +284,13 @@ private fun Hairline() {
             .fillMaxWidth()
             .padding(start = 16.dp)
             .height(1.dp)
-            .background(Color(0x14FFFFFF)),
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
     )
 }
 
 @Composable
 private fun EntryRow(title: String, desc: String) {
+    val cs = MaterialTheme.colorScheme
     Row(
         Modifier
             .fillMaxWidth()
@@ -267,28 +299,40 @@ private fun EntryRow(title: String, desc: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = TextPrimary, fontSize = 16.sp)
+            Text(title, color = cs.onSurface, fontSize = 16.sp)
             Spacer(Modifier.height(3.dp))
-            Text(desc, color = TextSecondary, fontSize = 12.sp, maxLines = 1)
+            Text(desc, color = cs.onSurfaceVariant, fontSize = 12.sp, maxLines = 1)
         }
-        Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = TextSecondary.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+        Icon(
+            Icons.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = cs.onSurfaceVariant.copy(alpha = 0.6f),
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
 @Composable
-private fun SettingRow(title: String, subtitle: String, trailing: String) {
+private fun SettingRow(
+    title: String,
+    subtitle: String,
+    trailing: String,
+    onClick: (() -> Unit)? = null,
+) {
+    val cs = MaterialTheme.colorScheme
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = TextPrimary, fontSize = 16.sp)
+            Text(title, color = cs.onSurface, fontSize = 16.sp)
             Spacer(Modifier.height(3.dp))
-            Text(subtitle, color = TextSecondary, fontSize = 12.sp)
+            Text(subtitle, color = cs.onSurfaceVariant, fontSize = 12.sp)
         }
-        Text(trailing, color = TextSecondary, fontSize = 15.sp)
+        Text(trailing, color = cs.onSurfaceVariant, fontSize = 15.sp)
     }
 }
