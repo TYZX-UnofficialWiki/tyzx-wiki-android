@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -46,35 +47,43 @@ import org.tyzx.wiki.glass.liquidtabs.LiquidGlassStyle
 
 // 四层表面（照 BiliTools AppSurfaces 的取值区间）
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFD0BCFF),
-    onPrimary = Color(0xFF1D192B),
-    background = Color(0xFF121016),
-    surface = Color(0xFF121016),
-    surfaceContainerLowest = Color(0xFF0C0A10),
-    surfaceContainerLow = Color(0xFF17141C),
-    surfaceContainer = Color(0xFF1D1A22),
-    surfaceContainerHigh = Color(0xFF26222C),
-    surfaceContainerHighest = Color(0xFF2B2733),
-    surfaceBright = Color(0xFF1D1A22),
-    onSurface = Color(0xFFE8E3EC),
-    onSurfaceVariant = Color(0xFFA9A3B5),
-    outlineVariant = Color(0xFF3A3542),
+    primary = Color(0xFFCFBCFF),
+    onPrimary = Color(0xFF36246B),
+    primaryContainer = Color(0xFF4B3A85),
+    onPrimaryContainer = Color(0xFFE8DDFF),
+    secondaryContainer = Color(0xFF332C4C),
+    onSecondaryContainer = Color(0xFFE6DEFF),
+    background = Color(0xFF111016),
+    surface = Color(0xFF111016),
+    surfaceContainerLowest = Color(0xFF0B0A0F),
+    surfaceContainerLow = Color(0xFF16141D),
+    surfaceContainer = Color(0xFF1C1A24),
+    surfaceContainerHigh = Color(0xFF262231),
+    surfaceContainerHighest = Color(0xFF302B3D),
+    surfaceBright = Color(0xFF2A2536),
+    onSurface = Color(0xFFE9E4F2),
+    onSurfaceVariant = Color(0xFFA9A1BC),
+    outlineVariant = Color(0xFF3B3448),
 )
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF6750A4),
+    primary = Color(0xFF6C5BD4),
     onPrimary = Color(0xFFFFFFFF),
-    background = Color(0xFFF5F5FA),
-    surface = Color(0xFFF5F5FA),
+    primaryContainer = Color(0xFFE4DBFF),
+    onPrimaryContainer = Color(0xFF221A4E),
+    secondaryContainer = Color(0xFFEDE6FF),
+    onSecondaryContainer = Color(0xFF2A2350),
+    background = Color(0xFFF6F4FC),
+    surface = Color(0xFFF6F4FC),
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFFAFAFD),
-    surfaceContainer = Color(0xFFFFFFFF),
-    surfaceContainerHigh = Color(0xFFEDEDF3),
-    surfaceContainerHighest = Color(0xFFE4E4EC),
-    surfaceBright = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF1B1B21),
-    onSurfaceVariant = Color(0xFF5D5D68),
-    outlineVariant = Color(0xFFD5D5DE),
+    surfaceContainerLow = Color(0xFFF1EEFA),
+    surfaceContainer = Color(0xFFE9E4F8),
+    surfaceContainerHigh = Color(0xFFDFD8F2),
+    surfaceContainerHighest = Color(0xFFD4CCEC),
+    surfaceBright = Color(0xFFFBF9FF),
+    onSurface = Color(0xFF1B1725),
+    onSurfaceVariant = Color(0xFF5C5470),
+    outlineVariant = Color(0xFFCFC6E4),
 )
 
 private val Tabs = listOf(
@@ -94,16 +103,16 @@ private data class FeedItem(
 private val Feed = listOf(
     FeedItem(
         "樱花节", "樱花季的校园活动与历届记录", "校园活动",
-        "https://zh-wiki.tyzx.org/r2_file.php/public/5/55/%E6%A8%B1%E8%8A%B11.jpg", 0.86f,
+        "https://zh-wiki.tyzx.org/r2_file.php/thumb/5/55/%E6%A8%B1%E8%8A%B11.jpg/600px-%E6%A8%B1%E8%8A%B11.jpg", 0.86f,
     ),
     FeedItem(
         "江苏省天一中学", "官方名称、校区与办学信息", "学校",
-        "https://zh-wiki.tyzx.org/r2_file.php/public/9/96/%E5%8D%97%E9%97%A8%E6%AD%A3%E9%9D%A20.jpg", 0.72f,
+        "https://zh-wiki.tyzx.org/r2_file.php/thumb/9/96/%E5%8D%97%E9%97%A8%E6%AD%A3%E9%9D%A20.jpg/600px-%E5%8D%97%E9%97%A8%E6%AD%A3%E9%9D%A20.jpg", 0.72f,
     ),
     FeedItem("校园梗", "只有天一人看得懂的梗百科", "校园梗"),
     FeedItem(
         "话剧节", "话剧节的剧目、排练与演出", "校园文化艺术节",
-        "https://zh-wiki.tyzx.org/r2_file.php/public/0/00/%E4%BC%9A%E8%AE%AE%E4%B8%AD%E5%BF%831.jpg", 1.05f,
+        "https://zh-wiki.tyzx.org/r2_file.php/thumb/0/00/%E4%BC%9A%E8%AE%AE%E4%B8%AD%E5%BF%831.jpg/600px-%E4%BC%9A%E8%AE%AE%E4%B8%AD%E5%BF%831.jpg", 1.05f,
     ),
     FeedItem(
         "天一中学图灵社", "校内计算机社团的活动与作品", "学生社团",
@@ -111,12 +120,12 @@ private val Feed = listOf(
     ),
     FeedItem(
         "学校历史", "从建校到今天的完整时间线", "学校历史",
-        "https://zh-wiki.tyzx.org/r2_file.php/public/b/b5/%E4%BF%A1%E6%81%AF%E6%A5%BC3%E6%A5%BC%E8%A5%BF%E4%BE%A7%E8%B5%B0%E5%BB%8A0.jpg", 0.95f,
+        "https://zh-wiki.tyzx.org/r2_file.php/thumb/b/b5/%E4%BF%A1%E6%81%AF%E6%A5%BC3%E6%A5%BC%E8%A5%BF%E4%BE%A7%E8%B5%B0%E5%BB%8A0.jpg/600px-%E4%BF%A1%E6%81%AF%E6%A5%BC3%E6%A5%BC%E8%A5%BF%E4%BE%A7%E8%B5%B0%E5%BB%8A0.jpg", 0.95f,
     ),
     FeedItem("合唱节", "校园合唱节的历届记录", "校园文化艺术节"),
     FeedItem(
         "总集", "全部条目的汇总索引", "网站导航",
-        "https://zh-wiki.tyzx.org/r2_file.php/public/e/ec/%E4%B9%A6%E4%B8%8E%E6%A8%B1%E8%8A%B10.jpg", 0.86f,
+        "https://zh-wiki.tyzx.org/r2_file.php/thumb/e/ec/%E4%B9%A6%E4%B8%8E%E6%A8%B1%E8%8A%B10.jpg/600px-%E4%B9%A6%E4%B8%8E%E6%A8%B1%E8%8A%B10.jpg", 0.86f,
     ),
     FeedItem("AP课程", "开设科目、考试与学分说明", "课程"),
     FeedItem("运动会", "校运会的项目与成绩", "体育赛事"),
@@ -173,6 +182,8 @@ private fun FeedPage() {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item(span = StaggeredGridItemSpan.FullLine) { TopBar() }
+        item(span = StaggeredGridItemSpan.FullLine) { HeroCard() }
+        item(span = StaggeredGridItemSpan.FullLine) { Spacer(Modifier.height(18.dp)) }
         item(span = StaggeredGridItemSpan.FullLine) { RecentStrip() }
         item(span = StaggeredGridItemSpan.FullLine) { Spacer(Modifier.height(18.dp)) }
         item(span = StaggeredGridItemSpan.FullLine) {
@@ -198,6 +209,46 @@ private fun FeedPage() {
 }
 
 @Composable
+private fun HeroCard() {
+    val cs = MaterialTheme.colorScheme
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(212.dp)
+            .clip(RoundedCornerShape(26.dp))
+            .background(cs.surfaceContainerHigh)
+            .clickable {},
+    ) {
+        AsyncImage(
+            model = "https://zh-wiki.tyzx.org/r2_file.php/thumb/5/55/%E6%A8%B1%E8%8A%B11.jpg/600px-%E6%A8%B1%E8%8A%B11.jpg",
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.matchParentSize(),
+        )
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.verticalGradient(
+                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.68f)),
+                    startY = 90f,
+                ),
+            ),
+        )
+        Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+            Box(
+                Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.20f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+            ) {
+                Text("精选条目", color = Color.White, fontSize = 11.sp, letterSpacing = 0.6.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("樱花节", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
+            Spacer(Modifier.height(2.dp))
+            Text("樱花季的校园活动与历届记录", color = Color.White.copy(alpha = 0.85f), fontSize = 12.5.sp)
+        }
+    }
+}
+
+@Composable
 private fun TopBar() {
     val cs = MaterialTheme.colorScheme
     Column {
@@ -205,9 +256,9 @@ private fun TopBar() {
         Spacer(Modifier.height(20.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("天一维基", color = cs.onSurface, fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
+                Text("天一维基", color = cs.onSurface, fontSize = 32.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp)
                 Spacer(Modifier.height(4.dp))
-                Text("江苏省天一中学 · 非官方维基", color = cs.onSurfaceVariant, fontSize = 13.sp)
+                Text("江苏省天一中学 · 非官方维基", color = cs.onSurfaceVariant, fontSize = 13.sp, letterSpacing = 0.2.sp)
             }
             CircleIcon(onClick = {}) {
                 Icon(Icons.Filled.Search, contentDescription = null, tint = cs.onSurface, modifier = Modifier.size(20.dp))
@@ -267,12 +318,12 @@ private fun RecentStrip() {
                 val sub = listOf("2 小时前", "昨天", "3 天前")[i]
                 Column(
                     Modifier
-                        .width(150.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(cs.surfaceContainer)
-                        .padding(12.dp),
+                        .width(158.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(cs.surfaceContainerHigh)
+                        .padding(horizontal = 14.dp, vertical = 13.dp),
                 ) {
-                    Text(t, color = cs.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text(t, color = cs.onSurface, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(4.dp))
                     Text("有编辑 · $sub", color = cs.onSurfaceVariant, fontSize = 11.sp)
                 }
@@ -291,17 +342,17 @@ private fun CategoryChips(selected: Int, onSelected: (Int) -> Unit) {
                 Modifier
                     .clip(RoundedCornerShape(50))
                     .then(
-                        if (on) Modifier.background(cs.primary.copy(alpha = 0.16f))
+                        if (on) Modifier.background(cs.primaryContainer)
                         else Modifier.border(1.dp, cs.outlineVariant, RoundedCornerShape(50))
                     )
                     .clickable { onSelected(i) }
-                    .padding(horizontal = 16.dp, vertical = 9.dp),
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
             ) {
                 Text(
                     Categories[i],
-                    color = if (on) cs.primary else cs.onSurfaceVariant,
+                    color = if (on) cs.onPrimaryContainer else cs.onSurfaceVariant,
                     fontSize = 14.sp,
-                    fontWeight = if (on) FontWeight.Medium else FontWeight.Normal,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
                 )
             }
         }
@@ -314,7 +365,7 @@ private fun FeedCard(item: FeedItem) {
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(22.dp))
             .background(cs.surfaceContainer),
     ) {
         if (item.image != null) {
@@ -328,7 +379,7 @@ private fun FeedCard(item: FeedItem) {
                     .background(cs.surfaceContainerHigh),
             )
         }
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+        Column(Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 12.dp)) {
             if (item.image == null) {
                 Text(
                     item.tag,
@@ -341,8 +392,9 @@ private fun FeedCard(item: FeedItem) {
             Text(
                 item.title,
                 color = cs.onSurface,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
+                fontSize = 15.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.2).sp,
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -351,7 +403,8 @@ private fun FeedCard(item: FeedItem) {
                 Text(
                     item.desc,
                     color = cs.onSurfaceVariant,
-                    fontSize = 12.sp,
+                    fontSize = 12.5.sp,
+                    lineHeight = 17.sp,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
