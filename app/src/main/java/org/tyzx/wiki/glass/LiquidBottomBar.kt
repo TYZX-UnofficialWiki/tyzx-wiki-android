@@ -130,19 +130,19 @@ fun LiquidBottomBar(
                         dragging = true
                         dragX = startX
 
-                        // 按下即抓一帧页面，玻璃后面就是这一帧
-                        if (snapshot == null) {
-                            scope.launch {
-                                snapshot = runCatching {
-                                    val full = backdrop.toImageBitmap().asAndroidBitmap()
-                                    Bitmap.createScaledBitmap(
-                                        full,
-                                        (full.width * SNAPSHOT_SCALE).toInt(),
-                                        (full.height * SNAPSHOT_SCALE).toInt(),
-                                        true,
-                                    )
-                                }.getOrNull()
-                            }
+                        // 按下即抓一帧页面，玻璃后面就是这一帧。
+                        // 旧帧先留着当占位，回读完成再替换，避免玻璃闪一下白。
+                        scope.launch {
+                            val fresh = runCatching {
+                                val full = backdrop.toImageBitmap().asAndroidBitmap()
+                                Bitmap.createScaledBitmap(
+                                    full,
+                                    (full.width * SNAPSHOT_SCALE).toInt(),
+                                    (full.height * SNAPSHOT_SCALE).toInt(),
+                                    true,
+                                )
+                            }.getOrNull()
+                            if (fresh != null) snapshot = fresh
                         }
 
                         var lastX = startX
@@ -179,7 +179,6 @@ fun LiquidBottomBar(
                                 targetValue = centerOf(target),
                                 animationSpec = spring(dampingRatio = 0.78f, stiffness = 420f),
                             )
-                            snapshot = null
                         }
                         if (target != selected) onSelected(target)
                     }
