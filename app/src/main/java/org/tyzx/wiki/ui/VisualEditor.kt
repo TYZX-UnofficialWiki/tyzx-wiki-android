@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -59,12 +60,14 @@ fun VisualEditorScreen(
 ) {
     val cs = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
+    BackHandler(enabled = !askDiscard) { askDiscard = true }
 
     var doc by remember(title) { mutableStateOf<String?>(null) }
     var baseRev by remember(title) { mutableStateOf(0L) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var web by remember { mutableStateOf<WebView?>(null) }
+    var askDiscard by remember { mutableStateOf(false) }
     var linking by remember { mutableStateOf(false) }
     var linkUrl by remember { mutableStateOf("") }
 
@@ -184,6 +187,23 @@ fun VisualEditorScreen(
                 )
             }
         }
+    }
+
+    if (askDiscard) {
+        AlertDialog(
+            onDismissRequest = { askDiscard = false },
+            title = { Text("放弃这次编辑？", fontSize = 18.sp) },
+            text = { Text("没有保存的内容会丢失。", fontSize = 14.sp, color = cs.onSurfaceVariant) },
+            confirmButton = {
+                TextButton(onClick = {
+                    askDiscard = false
+                    onBack()
+                }) { Text("放弃") }
+            },
+            dismissButton = {
+                TextButton(onClick = { askDiscard = false }) { Text("继续编辑") }
+            },
+        )
     }
 
     if (linking) {

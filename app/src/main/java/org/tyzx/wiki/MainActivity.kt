@@ -164,9 +164,11 @@ fun App() {
     var externalInApp by remember { mutableStateOf(store.getBoolean("external_in_app", true)) }
     val fontScale = listOf(0.9f, 1f, 1.15f, 1.3f)[fontStep]
 
-        BackHandler(enabled = reading != null && editing == null && discussing == null) { reading = null }
+        BackHandler(enabled = visual != null) { visual = null }
+        BackHandler(enabled = editPick != null) { editPick = null }
+        BackHandler(enabled = reading != null && editing == null && discussing == null && visual == null) { reading = null }
         BackHandler(enabled = discussing != null && editing == null) { discussing = null }
-        BackHandler(enabled = reading == null && exploring && editing == null) { exploring = false }
+        BackHandler(enabled = reading == null && exploring && editing == null && visual == null) { exploring = false }
         BackHandler(enabled = reading == null && !exploring && authing) { authing = false }
 
         Box(Modifier.fillMaxSize().background(cs.background)) {
@@ -259,7 +261,7 @@ fun App() {
                     )
                 }
             }
-            if (reading == null && !exploring && !authing && editing == null && discussing == null) {
+            if (reading == null && !exploring && !authing && editing == null && discussing == null && visual == null) {
                 TyBottomBar(
                     tabs = Tabs,
                     selectedTabIndex = { tab },

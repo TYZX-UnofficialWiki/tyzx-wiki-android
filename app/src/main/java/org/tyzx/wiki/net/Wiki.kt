@@ -24,10 +24,12 @@ object Wiki {
     var user: String? = null
         private set
 
-    private fun cookieHeader(): String? =
+    private fun cookieHeader(): String? = synchronized(jar) {
         if (jar.isEmpty()) null else jar.entries.joinToString("; ") { (k, v) -> "$k=$v" }
+    }
 
     private fun rememberCookies(conn: java.net.HttpURLConnection) {
+        synchronized(jar) {
         conn.headerFields.forEach { (k, v) ->
             if (k != null && k.equals("Set-Cookie", ignoreCase = true)) {
                 v.forEach { raw ->
@@ -36,6 +38,7 @@ object Wiki {
                     if (i > 0) jar[pair.substring(0, i).trim()] = pair.substring(i + 1).trim()
                 }
             }
+        }
         }
     }
 
@@ -377,7 +380,9 @@ object Wiki {
     /** 返回 (wikitext, 最新版本号)。 */
     suspend fun pageSource(title: String): Pair<String, Long> {
         val j = JSONObject(raw("$REST/page/" + enc(title)))
-        return (j.optString("source") to j.optLong("latest", 0L))
+        // REST 返回的 latest 是对象：{"id":366,"timestamp":"..."}，不是数字
+        val rev = j.optJSONObject("latest")?.optLong("id", 0L) ?: 0L
+        return (j.optString("source") to rev)
     }
 
     data class SaveResult(val ok: Boolean, val message: String?, val newRev: Long)

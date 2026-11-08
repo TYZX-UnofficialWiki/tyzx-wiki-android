@@ -74,6 +74,7 @@ fun ReaderScreen(
     LaunchedEffect(title, reload) {
         html = null
         error = null
+        progress = 0
         runCatching { Wiki.pageHtml(title) }
             .onSuccess { html = it }
             .onFailure { error = it.message ?: "加载失败" }
@@ -178,7 +179,8 @@ fun ReaderScreen(
                                 route(Uri.parse(url))
 
                             private fun route(uri: Uri): Boolean {
-                                if (uri.host?.endsWith("tyzx.org") == true) {
+                                val host = uri.host.orEmpty()
+                                if (host == "tyzx.org" || host.endsWith(".tyzx.org")) {
                                     val path = uri.path.orEmpty()
                                     if (path.startsWith("/wiki/")) {
                                         val t = Uri.decode(path.removePrefix("/wiki/")).replace('_', ' ')
@@ -222,6 +224,10 @@ fun ReaderScreen(
                         wv.tag = d
                         wv.loadDataWithBaseURL(Wiki.HOST + "/", d, "text/html", "utf-8", null)
                     }
+                },
+                onRelease = { wv ->
+                    wv.stopLoading()
+                    wv.destroy()
                 },
             )
         }

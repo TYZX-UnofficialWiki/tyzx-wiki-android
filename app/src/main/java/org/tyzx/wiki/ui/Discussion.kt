@@ -136,7 +136,8 @@ fun DiscussionScreen(
                                     request: WebResourceRequest,
                                 ): Boolean {
                                     val uri = request.url ?: return false
-                                    if (uri.host?.endsWith("tyzx.org") == true) {
+                                    val host = uri.host.orEmpty()
+                                    if (host == "tyzx.org" || host.endsWith(".tyzx.org")) {
                                         val p = uri.path.orEmpty()
                                         if (p.startsWith("/wiki/")) {
                                             onOpen(Uri.decode(p.removePrefix("/wiki/")).replace('_', ' '))
@@ -156,6 +157,10 @@ fun DiscussionScreen(
                             wv.tag = d
                             wv.loadDataWithBaseURL(Wiki.HOST + "/", d, "text/html", "utf-8", null)
                         }
+                    },
+                    onRelease = { wv ->
+                        wv.stopLoading()
+                        wv.destroy()
                     },
                 )
             }
