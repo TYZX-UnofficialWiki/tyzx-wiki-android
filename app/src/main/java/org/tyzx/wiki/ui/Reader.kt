@@ -1,89 +1,95 @@
 package org.tyzx.wiki.ui
 
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.net.Uri
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsTopHeight
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withLink
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
-import coil3.compose.AsyncImage
 import org.tyzx.wiki.net.Wiki
 
+/**
+ * 阅读页。用 WebView 渲染 Parsoid 输出的 HTML——MediaWiki 内容里 HTML 标签很多，
+ * 自己解析成 Compose 组件兼容性差，这里改成网页渲染 + 注入主题 CSS。
+ */
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun ReaderScreen(title: String, onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: () -> Unit = {}) {
+fun ReaderScreen(
+    title: String,
+    onBack: () -> Unit,
+    onOpen: (String) -> Unit,
+    onEdit: () -> Unit = {},
+    fontScale: Float = 1f,
+) {
     val cs = MaterialTheme.colorScheme
-    var article by remember(title) { mutableStateOf<Article?>(null) }
+    val context = LocalContext.current
+    var html by remember(title) { mutableStateOf<String?>(null) }
     var error by remember(title) { mutableStateOf<String?>(null) }
-    var reload by remember(title) { mutableStateOf(0) }
+    var reload by remember(title) { mutableIntStateOf(0) }
+    var progress by remember(title) { mutableIntStateOf(0) }
 
     LaunchedEffect(title, reload) {
+        html = null
         error = null
-        article = null
-        runCatching { Html.parse(title, Wiki.pageHtml(title)) }
-            .onSuccess { article = it }
+        runCatching { Wiki.pageHtml(title) }
+            .onSuccess { html = it }
             .onFailure { error = it.message ?: "加载失败" }
     }
 
+    val doc = remember(html, cs, fontScale) {
+        html?.let { wrap(it, cs, fontScale) }
+    }
+
     Column(Modifier.fillMaxSize().background(cs.background)) {
-        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+        Spacer(Modifier.padding(top = 0.dp))
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                Modifier.size(40.dp).clip100().background(cs.surfaceContainer).clickable { onBack() },
+                Modifier.size(40.dp).clip(RoundedCornerShape(50)).background(cs.surfaceContainer)
+                    .clickable { onBack() },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = "返回", tint = cs.onSurface, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.ArrowBack, null, tint = cs.onSurface, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(12.dp))
             Text(
@@ -95,11 +101,21 @@ fun ReaderScreen(title: String, onBack: () -> Unit, onOpen: (String) -> Unit, on
                 modifier = Modifier.weight(1f),
             )
             Box(
-                Modifier.size(40.dp).clip100().background(cs.surfaceContainer).clickable { onEdit() },
+                Modifier.size(40.dp).clip(RoundedCornerShape(50)).background(cs.surfaceContainer)
+                    .clickable { onEdit() },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.Edit, contentDescription = "编辑", tint = cs.onSurface, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.Edit, null, tint = cs.onSurface, modifier = Modifier.size(18.dp))
             }
+        }
+
+        if (progress in 1..99) {
+            LinearProgressIndicator(
+                progress = { progress / 100f },
+                modifier = Modifier.fillMaxWidth().height(2.dp),
+                color = cs.primary,
+                trackColor = Color.Transparent,
+            )
         }
 
         when {
@@ -116,163 +132,123 @@ fun ReaderScreen(title: String, onBack: () -> Unit, onOpen: (String) -> Unit, on
                     )
                 }
             }
-            article == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            doc == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = cs.primary, strokeWidth = 2.dp, modifier = Modifier.size(26.dp))
             }
-            else -> LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 40.dp),
-            ) {
-                items(article!!.blocks) { b -> BlockView(b, onOpen) }
-            }
-        }
-    }
-}
-
-private fun Modifier.clip100() = clip(CircleShape)
-
-@Composable
-private fun BlockView(block: Block, onOpen: (String) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    when (block) {
-        is Block.Heading -> {
-            Spacer(Modifier.height(if (block.level <= 2) 22.dp else 16.dp))
-            Text(
-                block.text,
-                color = cs.onSurface,
-                fontSize = when (block.level) {
-                    1, 2 -> 22.sp
-                    3 -> 18.sp
-                    else -> 16.sp
-                },
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.2).sp,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(8.dp))
-        }
-
-        is Block.Paragraph -> {
-            Text(
-                runsToAnnotated(block.runs, cs.primary, onOpen),
-                color = cs.onSurface,
-                fontSize = 16.sp,
-                lineHeight = 27.sp,
-            )
-            Spacer(Modifier.height(14.dp))
-        }
-
-        is Block.Bullets -> {
-            Column(Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
-                block.items.forEachIndexed { i, item ->
-                    Row(Modifier.padding(vertical = 3.dp)) {
-                        Text(
-                            if (block.ordered) "${i + 1}." else "•",
-                            color = cs.onSurfaceVariant,
-                            fontSize = 16.sp,
-                            modifier = Modifier.width(20.dp),
-                        )
-                        Text(
-                            runsToAnnotated(item, cs.primary, onOpen),
-                            color = cs.onSurface,
-                            fontSize = 16.sp,
-                            lineHeight = 26.sp,
-                        )
-                    }
-                }
-            }
-        }
-
-        is Block.Figure -> {
-            Column(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                AsyncImage(
-                    model = block.src,
-                    contentDescription = block.caption,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 420.dp)
-                        .clip1002(RoundedCornerShape(16.dp))
-                        .background(cs.surfaceContainer),
-                )
-                if (block.caption != null) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(block.caption, color = cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 17.sp)
-                }
-            }
-        }
-
-        is Block.Quote -> {
-            Row(Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
-                Box(Modifier.width(3.dp).height(20.dp).background(cs.outlineVariant, RoundedCornerShape(2.dp)))
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    runsToAnnotated(block.runs, cs.primary, onOpen),
-                    color = cs.onSurfaceVariant,
-                    fontSize = 15.sp,
-                    lineHeight = 24.sp,
-                )
-            }
-        }
-
-        is Block.TableView -> {
-            AndroidView(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp)
-                    .padding(bottom = 14.dp)
-                    .clip1002(RoundedCornerShape(14.dp))
-                    .background(cs.surfaceContainer),
+            else -> AndroidView(
+                modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
                     WebView(ctx).apply {
-                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                        @SuppressLint("SetJavaScriptEnabled")
-                        settings.javaScriptEnabled = false
+                        setBackgroundColor(0x00000000)
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.loadsImagesAutomatically = true
+                        settings.blockNetworkImage = false
+                        webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView,
+                                request: WebResourceRequest,
+                            ): Boolean {
+                                val url = request.url ?: return false
+                                return route(url)
+                            }
+
+                            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
+                                route(Uri.parse(url))
+
+                            private fun route(uri: Uri): Boolean {
+                                if (uri.host?.endsWith("tyzx.org") == true) {
+                                    val path = uri.path.orEmpty()
+                                    if (path.startsWith("/wiki/")) {
+                                        val t = Uri.decode(path.removePrefix("/wiki/")).replace('_', ' ')
+                                        if (t.isNotBlank()) onOpen(t)
+                                        return true
+                                    }
+                                    if (path.startsWith("/index.php")) {
+                                        val t = uri.getQueryParameter("title")
+                                        if (t != null && uri.getQueryParameter("action") == null) {
+                                            onOpen(t)
+                                            return true
+                                        }
+                                    }
+                                    return false
+                                }
+                                runCatching {
+                                    ctx.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                }
+                                return true
+                            }
+
+                            override fun onPageFinished(view: WebView, url: String?) {
+                                progress = 100
+                            }
+
+                            override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                                progress = 10
+                            }
+                        }
+                        webChromeClient = object : android.webkit.WebChromeClient() {
+                            override fun onProgressChanged(view: WebView, newProgress: Int) {
+                                progress = newProgress
+                            }
+                        }
                     }
                 },
                 update = { wv ->
-                    val dark = cs.surface.lum() < 0.5f
-                    val fg = if (dark) "#E9E4F2" else "#1B1725"
-                    val css = """
-                        body{margin:0;padding:12px;font-family:sans-serif;font-size:13px;color:$fg;}
-                        table{border-collapse:collapse;width:100%;}
-                        td,th{border:1px solid rgba(128,128,128,.35);padding:6px;text-align:left;}
-                    """.trimIndent()
-                    val html = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'>" +
-                        "<style>$css</style></head><body>" + block.html + "</body></html>"
-                    wv.loadDataWithBaseURL(Wiki.HOST, html, "text/html", "utf-8", null)
+                    val d = doc
+                    if (d != null && wv.tag != d) {
+                        wv.tag = d
+                        wv.loadDataWithBaseURL(Wiki.HOST, d, "text/html", "utf-8", null)
+                    }
                 },
             )
         }
     }
 }
 
-private fun Modifier.clip1002(shape: androidx.compose.ui.graphics.Shape) = clip(shape)
+/** 注入主题 CSS：背景透明、配色跟 App 一致、图片自适应、表格可横滚。 */
+private fun wrap(body: String, cs: androidx.compose.material3.ColorScheme, fontScale: Float) = buildString {
+    val bg = cs.background.toHex()
+    val fg = cs.onSurface.toHex()
+    val muted = cs.onSurfaceVariant.toHex()
+    val link = cs.primary.toHex()
+    val card = cs.surfaceContainerHigh.toHex()
+    val size = (16f * fontScale).toInt()
+    append("<!doctype html><html><head><meta charset=\"utf-8\">")
+    append("<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,maximum-scale=3\">")
+    append("<style>")
+    append("html,body{background:$bg;color:$fg;margin:0;padding:0;}")
+    append("body{font-family:system-ui,-apple-system,\"Noto Sans SC\",sans-serif;font-size:${size}px;line-height:1.75;")
+    append("padding:4px 20px 48px;word-break:break-word;overflow-x:hidden;}")
+    append("a{color:$link;text-decoration:none;}")
+    append("h1,h2,h3,h4,h5,h6{color:$fg;line-height:1.35;margin:1.4em 0 .5em;font-weight:650;}")
+    append("h1{font-size:1.7em}h2{font-size:1.35em;border-bottom:1px solid ${muted}33;padding-bottom:.25em}")
+    append("h3{font-size:1.15em}h4{font-size:1.02em}")
+    append("p{margin:.7em 0;}")
+    append("ul,ol{padding-left:1.4em;margin:.6em 0;}")
+    append("li{margin:.3em 0;}")
+    append("img,video{max-width:100%;height:auto;border-radius:14px;}")
+    append("figure{margin:1.1em 0;}")
+    append("figcaption{font-size:.8em;color:$muted;margin-top:.4em;}")
+    append("table{display:block;overflow-x:auto;border-collapse:collapse;font-size:.88em;margin:1em 0;}")
+    append("th,td{border:1px solid ${muted}44;padding:8px 10px;}")
+    append("th{background:$card;}")
+    append("blockquote{border-left:3px solid $link;margin:1em 0;padding:.2em 0 .2em 1em;color:$muted;}")
+    append("pre,code{background:$card;border-radius:10px;font-size:.86em;}")
+    append("pre{padding:12px;overflow-x:auto;}")
+    append("code{padding:2px 6px;}")
+    append(".mw-editsection,.navbox,.metadata,.ambox,.sistersitebox{display:none;}")
+    append(".thumb,.thumbinner,.thumbcaption{background:transparent;border:0;}")
+    append("</style></head><body>")
+    append(body)
+    append("</body></html>")
+}
 
-private fun androidx.compose.ui.graphics.Color.lum(): Float =
-    0.299f * red + 0.587f * green + 0.114f * blue
-
-@Composable
-private fun runsToAnnotated(runs: List<Run>, linkColor: Color, onOpen: (String) -> Unit): AnnotatedString {
-    return buildAnnotatedString {
-        runs.forEach { r ->
-            val style = SpanStyle(
-                fontWeight = if (r.bold) FontWeight.Bold else null,
-                fontStyle = if (r.italic) FontStyle.Italic else null,
-                fontFamily = if (r.code) FontFamily.Monospace else null,
-                color = if (r.href != null) linkColor else Color.Unspecified,
-            )
-            if (r.href != null) {
-                val link = LinkAnnotation.Clickable(
-                    tag = r.href,
-                    styles = TextLinkStyles(style = style),
-                ) {
-                    if (r.href.startsWith("wiki:")) onOpen(r.href.removePrefix("wiki:"))
-                }
-                withLink(link) { append(r.text) }
-            } else {
-                withStyle(style) { append(r.text) }
-            }
-        }
-    }
+private fun Color.toHex(): String {
+    val a = (alpha * 255).toInt()
+    val r = (red * 255).toInt()
+    val g = (green * 255).toInt()
+    val b = (blue * 255).toInt()
+    return if (a == 255) String.format("#%02X%02X%02X", r, g, b)
+    else String.format("#%02X%02X%02X%02X", a, r, g, b)
 }
