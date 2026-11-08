@@ -25,6 +25,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -143,15 +146,23 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun App() {
+    val context = LocalContext.current
     var dark by remember { mutableStateOf(false) }
-    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors) {
+    var dynamic by remember { mutableStateOf(false) }
+    val scheme = when {
+        dynamic && dark -> dynamicDarkColorScheme(context)
+        dynamic -> dynamicLightColorScheme(context)
+        dark -> DarkColors
+        else -> LightColors
+    }
+    MaterialTheme(colorScheme = scheme) {
         val cs = MaterialTheme.colorScheme
         val backdrop = rememberLayerBackdrop()
         var tab by remember { mutableIntStateOf(0) }
 
         Box(Modifier.fillMaxSize().background(cs.background)) {
             Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
-                if (tab == 0) FeedPage() else SettingsPage(dark) { dark = it }
+                if (tab == 0) FeedPage() else SettingsPage(dark, dynamic, { dark = it }, { dynamic = it })
             }
             TyBottomBar(
                 tabs = Tabs,
@@ -425,7 +436,12 @@ private fun FeedCard(item: FeedItem) {
 }
 
 @Composable
-private fun SettingsPage(dark: Boolean, onDarkChange: (Boolean) -> Unit) {
+private fun SettingsPage(
+    dark: Boolean,
+    dynamic: Boolean,
+    onDarkChange: (Boolean) -> Unit,
+    onDynamicChange: (Boolean) -> Unit,
+) {
     val cs = MaterialTheme.colorScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -444,6 +460,13 @@ private fun SettingsPage(dark: Boolean, onDarkChange: (Boolean) -> Unit) {
                     subtitle = if (dark) "深色" else "浅色",
                     trailing = "切换",
                     onClick = { onDarkChange(!dark) },
+                )
+                Hairline()
+                SettingRow(
+                    title = "动态取色",
+                    subtitle = if (dynamic) "跟随壁纸（Material You）" else "使用天一紫",
+                    trailing = if (dynamic) "开" else "关",
+                    onClick = { onDynamicChange(!dynamic) },
                 )
                 Hairline()
                 SettingRow("字号", "跟随系统", "标准")
