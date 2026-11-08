@@ -59,5 +59,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-core:1.7.8")
     // 液态玻璃：Kyant0/AndroidLiquidGlass（Apache-2.0），BiliTools 用的就是它
     implementation("io.github.kyant0:backdrop:2.0.1")
+    implementation("io.coil-kt.coil3:coil-compose:3.5.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.5.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
