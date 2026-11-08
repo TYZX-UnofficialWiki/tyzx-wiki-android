@@ -55,6 +55,7 @@ import org.tyzx.wiki.glass.TyTab
 import org.tyzx.wiki.glass.liquidtabs.LiquidGlassStyle
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
+import org.tyzx.wiki.ui.ExploreScreen
 import org.tyzx.wiki.ui.HomeScreen
 import org.tyzx.wiki.ui.ReaderScreen
 
@@ -128,8 +129,10 @@ fun App() {
         val backdrop = rememberLayerBackdrop()
         var tab by remember { mutableIntStateOf(0) }
         var reading by remember { mutableStateOf<String?>(null) }
+        var exploring by remember { mutableStateOf(false) }
 
         BackHandler(enabled = reading != null) { reading = null }
+        BackHandler(enabled = reading == null && exploring) { exploring = false }
 
         Box(Modifier.fillMaxSize().background(cs.background)) {
             Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
@@ -140,13 +143,15 @@ fun App() {
                         onBack = { reading = null },
                         onOpen = { reading = it },
                     )
+                } else if (exploring) {
+                    ExploreScreen(onBack = { exploring = false }, onOpen = { reading = it })
                 } else if (tab == 0) {
-                    HomeScreen(onOpen = { reading = it })
+                    HomeScreen(onOpen = { reading = it }, onSearch = { exploring = true })
                 } else {
                     SettingsPage(dark, dynamic, { dark = it }, { dynamic = it })
                 }
             }
-            if (reading == null) {
+            if (reading == null && !exploring) {
                 TyBottomBar(
                     tabs = Tabs,
                     selectedTabIndex = { tab },

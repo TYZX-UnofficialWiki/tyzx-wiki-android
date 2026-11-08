@@ -58,7 +58,7 @@ import java.time.Instant
 private val Chips = listOf("全部", "学校", "校园活动", "校园文化艺术节", "校园梗", "行为方针")
 
 @Composable
-fun HomeScreen(onOpen: (String) -> Unit) {
+fun HomeScreen(onOpen: (String) -> Unit, onSearch: () -> Unit = {}) {
     val cs = MaterialTheme.colorScheme
     var cat by remember { mutableIntStateOf(0) }
     var reload by remember { mutableIntStateOf(0) }
@@ -94,7 +94,7 @@ fun HomeScreen(onOpen: (String) -> Unit) {
         verticalItemSpacing = 10.dp,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item(span = StaggeredGridItemSpan.FullLine) { HomeTopBar(onRandom = { reload++ }) }
+        item(span = StaggeredGridItemSpan.FullLine) { HomeTopBar(onRandom = { reload++ }, onSearch = onSearch) }
 
         if (hero != null) {
             item(span = StaggeredGridItemSpan.FullLine) {
@@ -148,7 +148,7 @@ fun HomeScreen(onOpen: (String) -> Unit) {
 }
 
 @Composable
-private fun HomeTopBar(onRandom: () -> Unit) {
+private fun HomeTopBar(onRandom: () -> Unit, onSearch: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Column {
         Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
@@ -159,7 +159,7 @@ private fun HomeTopBar(onRandom: () -> Unit) {
                 Spacer(Modifier.height(4.dp))
                 Text("江苏省天一中学 · 非官方维基", color = cs.onSurfaceVariant, fontSize = 13.sp)
             }
-            CircleBtn { Icon(Icons.Filled.Search, null, tint = cs.onSurface, modifier = Modifier.size(20.dp)) }
+            CircleBtn(onClick = onSearch) { Icon(Icons.Filled.Search, null, tint = cs.onSurface, modifier = Modifier.size(20.dp)) }
             Spacer(Modifier.width(8.dp))
             CircleBtn(onClick = onRandom) { DiceGlyph() }
         }

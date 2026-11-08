@@ -158,6 +158,39 @@ object Wiki {
     /** Parsoid 输出的完整 HTML */
     suspend fun pageHtml(title: String): String = raw("$REST/page/${enc(title)}/html")
 
+    data class Cat(val name: String, val size: Int)
+
+    suspend fun categoriesWithSize(): List<Cat> {
+        val j = api(
+            "action" to "query",
+            "list" to "allcategories",
+            "aclimit" to "100",
+            "acprop" to "size",
+            "acmin" to "1",
+            "acdir" to "ascending",
+        )
+        val arr = j.optJSONObject("query")?.optJSONArray("allcategories") ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val n = o.optString("category")
+            if (n.isBlank()) null else Cat(n, o.optInt("size"))
+        }.sortedByDescending { it.size }
+    }
+
+    suspend fun categoryMembers(cat: String, limit: Int = 100): List<String> {
+        val j = api(
+            "action" to "query",
+            "list" to "categorymembers",
+            "cmtitle" to "Category:$cat",
+            "cmlimit" to limit.toString(),
+            "cmnamespace" to "0",
+            "cmprop" to "title",
+        )
+        val arr = j.optJSONObject("query")?.optJSONArray("categorymembers") ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.optString("title") }
+            .filter { it.isNotBlank() }
+    }
+
     suspend fun categories(): List<String> {
         val j = api(
             "action" to "query",
