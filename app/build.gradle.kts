@@ -61,5 +61,6 @@ dependencies {
     implementation("io.github.kyant0:backdrop:2.0.1")
     implementation("io.coil-kt.coil3:coil-compose:3.5.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.5.0")
+    implementation("org.jsoup:jsoup:1.18.3")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
