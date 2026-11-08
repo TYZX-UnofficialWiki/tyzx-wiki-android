@@ -269,9 +269,16 @@ object Wiki {
                 user = r?.optString("lgusername")?.ifBlank { name }
                 null
             }
-            "Failed" -> when (r?.optString("reason").orEmpty()) {
-                "Incorrect username or password entered." -> "用户名或密码不对"
-                else -> r?.optString("reason")?.ifBlank { "登录失败" } ?: "登录失败"
+            "Failed" -> {
+                val why = r?.optString("reason").orEmpty()
+                when {
+                    why.contains("Incorrect username or password", true) -> "用户名或密码不对"
+                    why.contains("not specified a username", true) -> "请填写用户名"
+                    why.contains("not specified a password", true) -> "请填写密码"
+                    why.contains("blocked", true) -> "这个账号被封禁了"
+                    why.isBlank() -> "登录失败"
+                    else -> why
+                }
             }
             "Throttled" -> "尝试太频繁，等一会儿再试"
             "NeedToken" -> "会话过期，请重试"
