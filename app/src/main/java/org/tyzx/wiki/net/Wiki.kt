@@ -319,4 +319,46 @@ object Wiki {
         val needsCaptcha = msg.contains("captcha", true) || msg.contains("验证", true) || r?.has("captcha") == true
         return RegResult(msg, needsCaptcha, false)
     }
+
+    /** 返回 (wikitext, 最新版本号)。 */
+    suspend fun pageSource(title: String): Pair<String, Long> {
+        val j = JSONObject(raw("$REST/page/" + enc(title)))
+        return (j.optString("source") to j.optLong("latest", 0L))
+    }
+
+    data class SaveResult(val ok: Boolean, val message: String?, val newRev: Long)
+
+    suspend fun save(title: String, text: String, summary: String, baseRev: Long, watch: Boolean): SaveResult {
+        val j = post(
+            "action" to "edit",
+            "title" to title,
+            "text" to text,
+            "summary" to summary,
+            "token" to csrf(),
+            "baserevid" to baseRev.toString(),
+            "watchlist" to if (watch) "watch" else "nochange",
+            "bot" to "0",
+        )
+        val e = j.optJSONObject("edit")
+        if (e?.optString("result") == "Success") {
+            return SaveResult(true, null, e.optLong("newrevid", 0L))
+        }
+        val err = j.optJSONObject("error")
+        if (err != null) {
+            val info = err.optString("info")
+            val code = err.optString("code")
+            return SaveResult(
+                false,
+                when (code) {
+                    "editconflict" -> "有人抢先改了这条，请重新加载再改"
+                    "protectedpage", "permissiondenied" -> "你没有编辑这条的权限"
+                    "blocked" -> "这个账号被封禁了"
+                    "badtoken" -> "登录状态过期，请重新登录"
+                    else -> info.ifBlank { code }
+                },
+                0L,
+            )
+        }
+        return SaveResult(false, "保存失败", 0L)
+    }
 }

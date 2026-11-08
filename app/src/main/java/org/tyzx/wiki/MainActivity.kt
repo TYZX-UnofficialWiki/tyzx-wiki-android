@@ -59,6 +59,7 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import kotlinx.coroutines.launch
 import org.tyzx.wiki.net.Wiki
 import org.tyzx.wiki.ui.AuthScreen
+import org.tyzx.wiki.ui.EditorScreen
 import org.tyzx.wiki.ui.ExploreScreen
 import org.tyzx.wiki.ui.HomeScreen
 import org.tyzx.wiki.ui.ReaderScreen
@@ -136,21 +137,33 @@ fun App() {
         var reading by remember { mutableStateOf<String?>(null) }
         var exploring by remember { mutableStateOf(false) }
         var authing by remember { mutableStateOf(false) }
+        var editing by remember { mutableStateOf<String?>(null) }
+        var tick by remember { mutableIntStateOf(0) }
         var account by remember { mutableStateOf(Wiki.user) }
 
-        BackHandler(enabled = reading != null) { reading = null }
-        BackHandler(enabled = reading == null && exploring) { exploring = false }
+        BackHandler(enabled = reading != null && editing == null) { reading = null }
+        BackHandler(enabled = reading == null && exploring && editing == null) { exploring = false }
         BackHandler(enabled = reading == null && !exploring && authing) { authing = false }
 
         Box(Modifier.fillMaxSize().background(cs.background)) {
             Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
                 val title = reading
-                if (title != null) {
-                    ReaderScreen(
-                        title = title,
-                        onBack = { reading = null },
-                        onOpen = { reading = it },
+                val editingTitle = editing
+                if (editingTitle != null) {
+                    EditorScreen(
+                        title = editingTitle,
+                        onBack = { editing = null },
+                        onSaved = { editing = null; tick++ },
                     )
+                } else if (title != null) {
+                    androidx.compose.runtime.key(tick) {
+                        ReaderScreen(
+                            title = title,
+                            onBack = { reading = null },
+                            onOpen = { reading = it },
+                            onEdit = { editing = title },
+                        )
+                    }
                 } else if (authing) {
                     AuthScreen(onBack = { authing = false }, onDone = { account = it; authing = false })
                 } else if (exploring) {
@@ -172,7 +185,7 @@ fun App() {
                     )
                 }
             }
-            if (reading == null && !exploring && !authing) {
+            if (reading == null && !exploring && !authing && editing == null) {
                 TyBottomBar(
                     tabs = Tabs,
                     selectedTabIndex = { tab },

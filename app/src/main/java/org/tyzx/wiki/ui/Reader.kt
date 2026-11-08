@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -58,7 +59,7 @@ import coil3.compose.AsyncImage
 import org.tyzx.wiki.net.Wiki
 
 @Composable
-fun ReaderScreen(title: String, onBack: () -> Unit, onOpen: (String) -> Unit) {
+fun ReaderScreen(title: String, onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: () -> Unit = {}) {
     val cs = MaterialTheme.colorScheme
     var article by remember(title) { mutableStateOf<Article?>(null) }
     var error by remember(title) { mutableStateOf<String?>(null) }
@@ -93,6 +94,12 @@ fun ReaderScreen(title: String, onBack: () -> Unit, onOpen: (String) -> Unit) {
                 maxLines = 1,
                 modifier = Modifier.weight(1f),
             )
+            Box(
+                Modifier.size(40.dp).clip100().background(cs.surfaceContainer).clickable { onEdit() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Edit, contentDescription = "编辑", tint = cs.onSurface, modifier = Modifier.size(18.dp))
+            }
         }
 
         when {
