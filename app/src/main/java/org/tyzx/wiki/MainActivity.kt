@@ -4,13 +4,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -18,8 +21,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,6 +31,58 @@ import org.tyzx.wiki.glass.TyBottomBar
 import org.tyzx.wiki.glass.TyTab
 import org.tyzx.wiki.glass.liquidtabs.LiquidGlassStyle
 
+// 四层表面语义：页面 T9 / 卡片 T18 / 内嵌 T12 / 模态 T15
+private val Page = Color(0xFF121016)
+private val Card = Color(0xFF1D1A22)
+private val Inset = Color(0xFF26222C)
+private val Modal = Color(0xFF2B2733)
+private val TextPrimary = Color(0xFFE8E3EC)
+private val TextSecondary = Color(0xFFA9A3B5)
+private val Accent = Color(0xFFD0BCFF)
+
+private val DarkColors = darkColorScheme(
+    primary = Accent,
+    onPrimary = Color(0xFF1D192B),
+    secondary = Color(0xFFCCC2DC),
+    background = Page,
+    surface = Page,
+    surfaceContainerLowest = Color(0xFF0C0A10),
+    surfaceContainerLow = Page,
+    surfaceContainer = Card,
+    surfaceContainerHigh = Modal,
+    surfaceContainerHighest = Color(0xFF3A3444),
+    surfaceBright = Card,
+    onBackground = TextPrimary,
+    onSurface = TextPrimary,
+    onSurfaceVariant = TextSecondary,
+    outlineVariant = Color(0xFF3A3542),
+)
+
+private val Tabs = listOf(
+    TyTab("首页", Icons.Filled.Home),
+    TyTab("设置", Icons.Filled.Settings),
+)
+
+/** 中文站现有的全部条目，先用真实内容把页面撑起来 */
+private val Entries = listOf(
+    "首页" to "站点导航与近期更新",
+    "天一中学" to "学校的概况、历史与现状",
+    "学校历史" to "从建校到今天的完整时间线",
+    "江苏省天一中学" to "官方名称、校区与办学信息",
+    "天一中学AP课程班" to "AP 课程班的课程设置与招录",
+    "AP课程" to "开设科目、考试与学分说明",
+    "天一中学图灵社" to "校内计算机社团的活动与作品",
+    "总集" to "全部条目的汇总索引",
+    "生成式AI使用方针" to "校内对生成式 AI 的使用规范",
+    "合唱节" to "校园合唱节的历届记录",
+    "科技节" to "科技节的展项与比赛",
+    "话剧节" to "话剧节的剧目与演出",
+    "樱花节" to "樱花季的校园活动",
+    "运动会" to "校运会的项目与成绩",
+    "数学“π”节" to "数学节的活动与题目",
+    "Bad Apple!!" to "社团制作的影响影绘作品",
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,28 +91,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFFD0BCFF),
-    onSurfaceVariant = Color(0xFF0E4C52),
-    background = Color(0xFF0F0D13),
-    surface = Color(0xFF0F0D13),
-)
-
-private val Tabs = listOf(
-    TyTab("首页", Icons.Filled.Home),
-    TyTab("设置", Icons.Filled.Settings),
-)
-
 @Composable
 fun App() {
     MaterialTheme(colorScheme = DarkColors) {
         val backdrop = rememberLayerBackdrop()
         var tab by remember { mutableIntStateOf(0) }
 
-        Box(Modifier.fillMaxSize().background(Color(0xFF0F0D13))) {
-            // 页面内容录进 backdrop，底栏玻璃从这里采样
+        Box(Modifier.fillMaxSize().background(Page)) {
             Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
-                DemoPage(tab)
+                if (tab == 0) HomePage() else SettingsPage()
             }
 
             TyBottomBar(
@@ -73,83 +113,182 @@ fun App() {
                     refractionAmountFrac = 0.35f,
                     chromaticAberration = true,
                 ),
-                surfaceAlpha = 0.22f,
+                surfaceAlpha = 0.30f,
             )
         }
     }
 }
 
 @Composable
-private fun DemoPage(tab: Int) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF2B1B45), Color(0xFF0F0D13)),
-                )
-            )
+private fun HomePage() {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 140.dp),
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            drawCircle(
-                color = Color(0xFF7C4DFF).copy(alpha = 0.55f),
-                radius = 260.dp.toPx(),
-                center = Offset(size.width * 0.18f, size.height * 0.74f),
-            )
-            drawCircle(
-                color = Color(0xFF00C2FF).copy(alpha = 0.38f),
-                radius = 200.dp.toPx(),
-                center = Offset(size.width * 0.88f, size.height * 0.82f),
-            )
-        }
-
-        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
-            Spacer(Modifier.height(96.dp))
-            Text(
-                text = if (tab == 0) "底栏试验" else "设置",
-                color = Color.White,
-                fontSize = 34.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = "按住底栏：液化\n拖动：跟着手指走\n松手：凝固回平涂",
-                color = Color(0xFFB9B4C7),
-                fontSize = 15.sp,
-                lineHeight = 24.sp,
-            )
-            Spacer(Modifier.height(28.dp))
-            repeat(6) { i ->
-                Text(
-                    text = "示例条目 ${i + 1} · 这里以后是维基内容",
-                    color = Color(0x66FFFFFF),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(vertical = 10.dp),
-                )
-            }
-        }
-
-        // 底栏正下方放带文字的卡片：玻璃要有边界才看得出折射
-        Column(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 30.dp)
-        ) {
-            repeat(3) { i ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF1C1922))
-                        .padding(14.dp)
-                ) {
-                    Text("示例条目 ${i + 4}", color = Color(0xFFEDE7F6), fontSize = 15.sp)
-                    Text("这段文字会被玻璃折射成两层", color = Color(0x99EDE7F6), fontSize = 12.sp)
+        item { PageHeader("天一维基", "江苏省天一中学 · 非官方维基") }
+        item { Spacer(Modifier.height(20.dp)) }
+        item { SearchField("搜索条目…") }
+        item { Spacer(Modifier.height(28.dp)) }
+        item { SectionLabel("条目 ${Entries.size}") }
+        item {
+            GroupCard {
+                Entries.forEachIndexed { i, (title, desc) ->
+                    if (i > 0) Hairline()
+                    EntryRow(title, desc)
                 }
             }
         }
+        item { Spacer(Modifier.height(28.dp)) }
+        item {
+            Text(
+                text = "本站内容来自 wiki.tyzx.org，本应用为非官方客户端",
+                color = TextSecondary.copy(alpha = 0.6f),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsPage() {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 140.dp),
+    ) {
+        item { PageHeader("设置", "阅读、缓存与关于") }
+        item { Spacer(Modifier.height(20.dp)) }
+        item { SearchField("搜索设置…") }
+
+        item { Spacer(Modifier.height(28.dp)) }
+        item { SectionLabel("阅读") }
+        item {
+            GroupCard {
+                SettingRow("字号", "跟随系统", "18")
+                Hairline()
+                SettingRow("主题", "深色", "18")
+                Hairline()
+                SettingRow("只读模式", "不提供编辑入口", "18")
+            }
+        }
+
+        item { Spacer(Modifier.height(24.dp)) }
+        item { SectionLabel("离线") }
+        item {
+            GroupCard {
+                SettingRow("已缓存", "0 个页面", "18")
+                Hairline()
+                SettingRow("清除缓存", "连同缩略图一起删除", "18")
+            }
+        }
+
+        item { Spacer(Modifier.height(24.dp)) }
+        item { SectionLabel("关于") }
+        item {
+            GroupCard {
+                SettingRow("版本", "0.0.2-debug", "18")
+                Hairline()
+                SettingRow("开源许可", "GPL-3.0 · 含 BiliTools、Backdrop", "18")
+                Hairline()
+                SettingRow("非官方声明", "与天一中学官方无关", "18")
+            }
+        }
+    }
+}
+
+@Composable
+private fun PageHeader(title: String, subtitle: String) {
+    Column {
+        Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+        Spacer(Modifier.height(28.dp))
+        Text(title, color = TextPrimary, fontSize = 34.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
+        Text(subtitle, color = TextSecondary, fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun SearchField(hint: String) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(RoundedCornerShape(26.dp))
+            .background(Inset)
+            .padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Search, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(hint, color = TextSecondary, fontSize = 15.sp)
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        color = TextSecondary,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Medium,
+        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun GroupCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Card),
+        content = content,
+    )
+}
+
+@Composable
+private fun Hairline() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp)
+            .height(1.dp)
+            .background(Color(0x14FFFFFF)),
+    )
+}
+
+@Composable
+private fun EntryRow(title: String, desc: String) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = TextPrimary, fontSize = 16.sp)
+            Spacer(Modifier.height(3.dp))
+            Text(desc, color = TextSecondary, fontSize = 12.sp, maxLines = 1)
+        }
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = TextSecondary.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+private fun SettingRow(title: String, subtitle: String, trailing: String) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = TextPrimary, fontSize = 16.sp)
+            Spacer(Modifier.height(3.dp))
+            Text(subtitle, color = TextSecondary, fontSize = 12.sp)
+        }
+        Text(trailing, color = TextSecondary, fontSize = 15.sp)
     }
 }
