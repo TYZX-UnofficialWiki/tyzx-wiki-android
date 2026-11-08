@@ -41,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,8 @@ import org.tyzx.wiki.glass.TyTab
 import org.tyzx.wiki.glass.liquidtabs.LiquidGlassStyle
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
+import org.tyzx.wiki.net.Wiki
+import org.tyzx.wiki.ui.AuthScreen
 import org.tyzx.wiki.ui.ExploreScreen
 import org.tyzx.wiki.ui.HomeScreen
 import org.tyzx.wiki.ui.ReaderScreen
@@ -127,12 +130,16 @@ fun App() {
     MaterialTheme(colorScheme = scheme) {
         val cs = MaterialTheme.colorScheme
         val backdrop = rememberLayerBackdrop()
+        val scope = rememberCoroutineScope()
         var tab by remember { mutableIntStateOf(0) }
         var reading by remember { mutableStateOf<String?>(null) }
         var exploring by remember { mutableStateOf(false) }
+        var authing by remember { mutableStateOf(false) }
+        var account by remember { mutableStateOf(Wiki.user) }
 
         BackHandler(enabled = reading != null) { reading = null }
         BackHandler(enabled = reading == null && exploring) { exploring = false }
+        BackHandler(enabled = reading == null && !exploring && authing) { authing = false }
 
         Box(Modifier.fillMaxSize().background(cs.background)) {
             Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
@@ -143,15 +150,28 @@ fun App() {
                         onBack = { reading = null },
                         onOpen = { reading = it },
                     )
+                } else if (authing) {
+                    AuthScreen(onBack = { authing = false }, onDone = { account = it; authing = false })
                 } else if (exploring) {
                     ExploreScreen(onBack = { exploring = false }, onOpen = { reading = it })
                 } else if (tab == 0) {
                     HomeScreen(onOpen = { reading = it }, onSearch = { exploring = true })
                 } else {
-                    SettingsPage(dark, dynamic, { dark = it }, { dynamic = it })
+                    SettingsPage(
+                        dark = dark,
+                        dynamic = dynamic,
+                        onDarkChange = { dark = it },
+                        onDynamicChange = { dynamic = it },
+                        account = account,
+                        onAuth = { authing = true },
+                        onLogout = {
+                            scope.launch { Wiki.logout() }
+                            account = null
+                        },
+                    )
                 }
             }
-            if (reading == null && !exploring) {
+            if (reading == null && !exploring && !authing) {
                 TyBottomBar(
                     tabs = Tabs,
                     selectedTabIndex = { tab },
@@ -176,6 +196,9 @@ private fun SettingsPage(
     dynamic: Boolean,
     onDarkChange: (Boolean) -> Unit,
     onDynamicChange: (Boolean) -> Unit,
+    account: String?,
+    onAuth: () -> Unit,
+    onLogout: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -184,6 +207,28 @@ private fun SettingsPage(
         item { PageHeader("设置", "阅读、缓存与关于") }
         item { Spacer(Modifier.height(20.dp)) }
         item { SearchField("搜索设置…") }
+
+        item { Spacer(Modifier.height(28.dp)) }
+        item { SectionLabel("账号") }
+        item {
+            GroupCard {
+                if (account == null) {
+                    SettingRow(
+                        title = "登录 / 注册",
+                        subtitle = "编辑条目、上传图片、讨论页发言都需要账号",
+                        trailing = "去登录",
+                        onClick = onAuth,
+                    )
+                } else {
+                    SettingRow(
+                        title = account!!,
+                        subtitle = "已登录，可编辑与上传",
+                        trailing = "退出",
+                        onClick = onLogout,
+                    )
+                }
+            }
+        }
 
         item { Spacer(Modifier.height(28.dp)) }
         item { SectionLabel("外观") }

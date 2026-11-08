@@ -18,15 +18,38 @@ object Wiki {
 
     private const val UA = "TianyiWikiAndroid/0.1 (+https://github.com/TYZX-UnofficialWiki/tyzx-wiki-android)"
 
+    /** 登录态 cookie。进程内保存，重启需重新登录。 */
+    private val jar = linkedMapOf<String, String>()
+
+    var user: String? = null
+        private set
+
+    private fun cookieHeader(): String? =
+        if (jar.isEmpty()) null else jar.entries.joinToString("; ") { (k, v) -> "$k=$v" }
+
+    private fun rememberCookies(conn: java.net.HttpURLConnection) {
+        conn.headerFields.forEach { (k, v) ->
+            if (k != null && k.equals("Set-Cookie", ignoreCase = true)) {
+                v.forEach { raw ->
+                    val pair = raw.substringBefore(';')
+                    val i = pair.indexOf('=')
+                    if (i > 0) jar[pair.substring(0, i).trim()] = pair.substring(i + 1).trim()
+                }
+            }
+        }
+    }
+
     suspend fun raw(url: String): String = withContext(Dispatchers.IO) {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15000
             readTimeout = 20000
             setRequestProperty("User-Agent", UA)
             setRequestProperty("Accept", "application/json, text/html;q=0.9")
+            cookieHeader()?.let { setRequestProperty("Cookie", it) }
         }
         try {
             val code = conn.responseCode
+            rememberCookies(conn)
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val text = stream?.bufferedReader()?.use(BufferedReader::readText) ?: ""
             if (code !in 200..299) error("HTTP $code: ${text.take(200)}")
@@ -202,5 +225,93 @@ object Wiki {
         val arr = j.optJSONObject("query")?.optJSONArray("allcategories") ?: return emptyList()
         return (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.optString("category") }
             .filter { it.isNotBlank() }
+    }
+
+    private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
+
+    suspend fun post(vararg params: Pair<String, String>): JSONObject = withContext(Dispatchers.IO) {
+        val body = buildString {
+            append("format=json&formatversion=2")
+            params.forEach { (k, v) -> append('&').append(enc(k)).append('=').append(enc(v)) }
+        }.toByteArray()
+        val conn = (URL(API).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            doOutput = true
+            connectTimeout = 15000
+            readTimeout = 25000
+            setRequestProperty("User-Agent", UA)
+            setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            cookieHeader()?.let { setRequestProperty("Cookie", it) }
+        }
+        try {
+            conn.outputStream.use { it.write(body) }
+            val code = conn.responseCode
+            rememberCookies(conn)
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val text = stream?.bufferedReader()?.use(BufferedReader::readText) ?: ""
+            JSONObject(text.ifBlank { "{}" })
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private suspend fun token(type: String): String =
+        api("action" to "query", "meta" to "tokens", "type" to type)
+            .optJSONObject("query")?.optJSONObject("tokens")?.optString(type + "token")
+            .orEmpty()
+
+    /** 返回 null 表示成功，否则返回给用户看的中文错误。 */
+    suspend fun login(name: String, pass: String): String? {
+        val t = token("login")
+        val j = post("action" to "login", "lgname" to name, "lgpassword" to pass, "lgtoken" to t)
+        val r = j.optJSONObject("login")
+        val result = r?.optString("result").orEmpty()
+        return when (result) {
+            "Success" -> {
+                user = r?.optString("lgusername")?.ifBlank { name }
+                null
+            }
+            "Failed" -> when (r?.optString("reason").orEmpty()) {
+                "Incorrect username or password entered." -> "用户名或密码不对"
+                else -> r?.optString("reason")?.ifBlank { "登录失败" } ?: "登录失败"
+            }
+            "Throttled" -> "尝试太频繁，等一会儿再试"
+            "NeedToken" -> "会话过期，请重试"
+            "Aborted" -> "登录被站点拒绝"
+            else -> "登录失败（$result）"
+        }
+    }
+
+    suspend fun logout() {
+        runCatching { post("action" to "logout", "token" to token("csrf")) }
+        jar.clear()
+        user = null
+    }
+
+    data class RegResult(val error: String?, val captcha: Boolean, val ok: Boolean)
+
+    suspend fun register(name: String, pass: String, email: String): RegResult {
+        val t = token("createaccount")
+        val j = post(
+            "action" to "createaccount",
+            "createreturnurl" to HOST,
+            "createtoken" to t,
+            "username" to name,
+            "password" to pass,
+            "retype" to pass,
+            "email" to email,
+            "realname" to "",
+        )
+        val r = j.optJSONObject("createaccount")
+        val status = r?.optString("status").orEmpty()
+        if (status == "PASS") {
+            user = r?.optString("username")?.ifBlank { name }
+            return RegResult(null, false, true)
+        }
+        val msg = r?.optString("message")?.ifBlank { null }
+            ?: r?.optJSONObject("message")?.optString("text")
+            ?: "注册失败"
+        val needsCaptcha = msg.contains("captcha", true) || msg.contains("验证", true) || r?.has("captcha") == true
+        return RegResult(msg, needsCaptcha, false)
     }
 }
