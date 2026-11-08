@@ -209,16 +209,18 @@ private fun TopBar() {
                 Spacer(Modifier.height(4.dp))
                 Text("江苏省天一中学 · 非官方维基", color = cs.onSurfaceVariant, fontSize = 13.sp)
             }
-            CircleIcon(Icons.Filled.Search) {}
+            CircleIcon(onClick = {}) {
+                Icon(Icons.Filled.Search, contentDescription = null, tint = cs.onSurface, modifier = Modifier.size(20.dp))
+            }
             Spacer(Modifier.width(8.dp))
-            CircleIcon { DiceGlyph() }
+            CircleIcon(onClick = {}) { DiceGlyph() }
         }
         Spacer(Modifier.height(18.dp))
     }
 }
 
 @Composable
-private fun CircleIcon(icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
+private fun CircleIcon(onClick: () -> Unit, content: @Composable () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Box(
         Modifier
@@ -228,9 +230,7 @@ private fun CircleIcon(icon: androidx.compose.ui.graphics.vector.ImageVector? = 
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (icon != null) {
-            Icon(icon, contentDescription = null, tint = cs.onSurface, modifier = Modifier.size(20.dp))
-        }
+        content()
     }
 }
 
