@@ -54,7 +54,7 @@ fun ExploreScreen(
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<Wiki.Hit>>(emptyList()) }
     var cats by remember { mutableStateOf<List<Wiki.Cat>>(emptyList()) }
-    var members by remember { mutableStateOf<List<String>?>(null) }
+    var members by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
