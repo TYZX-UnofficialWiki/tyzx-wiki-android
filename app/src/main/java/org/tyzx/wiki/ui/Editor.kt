@@ -1,6 +1,11 @@
 package org.tyzx.wiki.ui
 
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -40,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -68,7 +74,60 @@ fun EditorScreen(
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var askDiscard by remember { mutableStateOf(false) }
+    var uploading by remember { mutableStateOf(false) }
     val scroll = rememberScrollState()
+    val context = LocalContext.current
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        uploading = true
+        error = null
+        scope.launch {
+            val read = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val resolver = context.contentResolver
+                    var name = "upload.jpg"
+                    var mime = resolver.getType(uri) ?: "image/jpeg"
+                    resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                        if (c.moveToFirst()) {
+                            val i = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (i >= 0) name = c.getString(i) ?: name
+                        }
+                    }
+                    val clean = name.replace(Regex("[^\\p{L}\\p{N}._-]"), "_")
+                    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: error("读不到这个文件")
+                    if (mime !in listOf("image/jpeg", "image/png", "image/gif", "image/webp")) {
+                        mime = when (clean.substringAfterLast('.', "").lowercase()) {
+                            "png" -> "image/png"
+                            "gif" -> "image/gif"
+                            "webp" -> "image/webp"
+                            else -> "image/jpeg"
+                        }
+                    }
+                    Triple(clean, mime, bytes)
+                }
+            }
+            read.onSuccess { (name, mime, bytes) ->
+                if (Wiki.user == null) {
+                    uploading = false
+                    error = "上传需要先登录"
+                    return@onSuccess
+                }
+                val r = Wiki.upload(name, bytes, mime, "来自天一维基 Android 客户端")
+                uploading = false
+                if (r.ok) {
+                    val file = r.filename ?: name
+                    text = text + "\n[[File:" + file + "|thumb|]]\n"
+                } else {
+                    error = r.message
+                }
+            }.onFailure {
+                uploading = false
+                error = it.message ?: "读取图片失败"
+            }
+        }
+    }
 
     LaunchedEffect(title) {
         runCatching { Wiki.pageSource(title) }
@@ -121,6 +180,17 @@ fun EditorScreen(
                     fontSize = 12.sp,
                 )
             }
+            TextButton(
+                onClick = {
+                    if (Wiki.user == null) error = "上传需要先登录"
+                    else picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+                enabled = !uploading,
+            ) {
+                if (uploading) CircularProgressIndicator(Modifier.size(16.dp), color = cs.primary, strokeWidth = 2.dp)
+                else Text("插图", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            }
+            Spacer(Modifier.width(4.dp))
             Button(
                 onClick = { save() },
                 enabled = !busy && original != null && dirty,

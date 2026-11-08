@@ -400,4 +400,74 @@ object Wiki {
             0L,
         )
     }
+
+    data class UploadResult(val ok: Boolean, val filename: String?, val message: String?)
+
+    /** multipart 上传文件。bytes 为原图字节。 */
+    suspend fun upload(fileName: String, bytes: ByteArray, mime: String, comment: String): UploadResult =
+        withContext(Dispatchers.IO) {
+            val boundary = "----TyzxWiki" + System.currentTimeMillis()
+            val crlf = "\r\n"
+            fun part(name: String, value: String) = buildString {
+                append("--").append(boundary).append(crlf)
+                append("Content-Disposition: form-data; name=\"").append(name).append("\"").append(crlf)
+                append(crlf).append(value).append(crlf)
+            }
+            val head = StringBuilder()
+            head.append(part("action", "upload"))
+            head.append(part("format", "json"))
+            head.append(part("formatversion", "2"))
+            head.append(part("filename", fileName))
+            head.append(part("comment", comment))
+            head.append(part("ignorewarnings", "1"))
+            head.append(part("token", csrf()))
+            head.append("--").append(boundary).append(crlf)
+            head.append("Content-Disposition: form-data; name=\"file\"; filename=\"").append(fileName).append("\"").append(crlf)
+            head.append("Content-Type: ").append(mime).append(crlf)
+            head.append(crlf)
+            val tail = crlf + "--" + boundary + "--" + crlf
+            val headBytes = head.toString().toByteArray()
+            val tailBytes = tail.toByteArray()
+
+            val conn = (URL(API).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                connectTimeout = 20000
+                readTimeout = 90000
+                setRequestProperty("User-Agent", UA)
+                setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                cookieHeader()?.let { setRequestProperty("Cookie", it) }
+            }
+            try {
+                conn.setFixedLengthStreamingMode(headBytes.size + bytes.size + tailBytes.size)
+                conn.outputStream.use { out ->
+                    out.write(headBytes)
+                    out.write(bytes)
+                    out.write(tailBytes)
+                    out.flush()
+                }
+                val code = conn.responseCode
+                rememberCookies(conn)
+                val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+                val text = stream?.bufferedReader()?.use(BufferedReader::readText) ?: ""
+                if (text.isBlank()) {
+                    return@withContext UploadResult(false, null, "服务器没有返回内容（HTTP $code）")
+                }
+                val j = JSONObject(text)
+                val up = j.optJSONObject("upload")
+                if (up?.optString("result") == "Success") {
+                    return@withContext UploadResult(true, up.optString("filename").ifBlank { fileName }, null)
+                }
+                val err = j.optJSONObject("error")
+                val warn = up?.optJSONObject("warnings")
+                val msg = when {
+                    err != null -> err.optString("info").ifBlank { err.optString("code") }
+                    warn != null -> "文件已存在或需要确认：${warn.keys().asSequence().joinToString()}"
+                    else -> "上传失败"
+                }
+                UploadResult(false, null, msg)
+            } finally {
+                conn.disconnect()
+            }
+        }
 }
