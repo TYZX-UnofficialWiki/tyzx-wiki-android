@@ -470,4 +470,37 @@ object Wiki {
                 conn.disconnect()
             }
         }
+
+    /** 带 cookie 的 JSON POST，返回原始文本（Parsoid 转换接口回的是 text/plain）。 */
+    private suspend fun postText(url: String, json: String): String = withContext(Dispatchers.IO) {
+        val body = json.toByteArray()
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            doOutput = true
+            connectTimeout = 15000
+            readTimeout = 40000
+            setRequestProperty("User-Agent", UA)
+            setRequestProperty("Content-Type", "application/json")
+            cookieHeader()?.let { setRequestProperty("Cookie", it) }
+        }
+        try {
+            conn.outputStream.use { it.write(body) }
+            val code = conn.responseCode
+            rememberCookies(conn)
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val text = stream?.bufferedReader()?.use(BufferedReader::readText) ?: ""
+            if (code !in 200..299) error("HTTP $code: ${text.take(160)}")
+            text
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /** 可视化编辑保存前的关键一步：把改过的 HTML 交回 Parsoid 转成 wikitext。 */
+    suspend fun htmlToWikitext(title: String, html: String): String {
+        postText(
+            "$REST/transform/html/to/wikitext/" + enc(title),
+            JSONObject().put("html", html).toString(),
+        )
+    }
 }

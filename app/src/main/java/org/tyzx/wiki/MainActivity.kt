@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -64,6 +65,7 @@ import org.tyzx.wiki.ui.EditorScreen
 import org.tyzx.wiki.ui.ExploreScreen
 import org.tyzx.wiki.ui.HomeScreen
 import org.tyzx.wiki.ui.ReaderScreen
+import org.tyzx.wiki.ui.VisualEditorScreen
 
 private val DarkColors = darkColorScheme(
     primary = Color(0xFFCFBCFF),
@@ -139,6 +141,8 @@ fun App() {
         var exploring by remember { mutableStateOf(false) }
         var authing by remember { mutableStateOf(false) }
         var editing by remember { mutableStateOf<String?>(null) }
+        var visual by remember { mutableStateOf<String?>(null) }
+        var editPick by remember { mutableStateOf<String?>(null) }
         var discussing by remember { mutableStateOf<String?>(null) }
         var tick by remember { mutableIntStateOf(0) }
         var account by remember { mutableStateOf(Wiki.user) }
@@ -159,6 +163,12 @@ fun App() {
                         onBack = { discussing = null },
                         onOpen = { discussing = null; reading = it },
                     )
+                } else if (visual != null) {
+                    VisualEditorScreen(
+                        title = visual!!,
+                        onBack = { visual = null },
+                        onSaved = { visual = null; tick++ },
+                    )
                 } else if (editingTitle != null) {
                     EditorScreen(
                         title = editingTitle,
@@ -171,7 +181,7 @@ fun App() {
                             title = title,
                             onBack = { reading = null },
                             onOpen = { reading = it },
-                            onEdit = { editing = title },
+                            onEdit = { editPick = title },
                             onDiscuss = { discussing = title },
                             onShare = {
                                 val url = "https://wiki.tyzx.org/wiki/" +
