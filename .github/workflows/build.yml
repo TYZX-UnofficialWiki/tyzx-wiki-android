@@ -3,6 +3,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -21,3 +24,17 @@ jobs:
         with:
           name: tyzx-wiki-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+      - name: Publish to Releases
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: 最新构建
+          make_latest: true
+          body: |
+            自动构建，每次 push 到 main 都会更新这个 release。
+
+            - 提交：`${{ github.sha }}`
+            - 说明：${{ github.event.head_commit.message }}
+            - 时间：${{ github.event.head_commit.timestamp }}
+          files: app/build/outputs/apk/debug/app-debug.apk

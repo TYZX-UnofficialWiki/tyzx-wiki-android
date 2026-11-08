@@ -16,6 +16,17 @@ android {
         versionName = "0.0.1"
     }
 
+    signingConfigs {
+        // 仓库里这份是公开的 debug 签名，只为了让每次 CI 产出的 APK 能覆盖安装
+        getByName("debug") {
+            storeFile = file("debug.p12")
+            storeType = "PKCS12"
+            storePassword = "tyzxdebug"
+            keyAlias = "tyzxdebug"
+            keyPassword = "tyzxdebug"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
