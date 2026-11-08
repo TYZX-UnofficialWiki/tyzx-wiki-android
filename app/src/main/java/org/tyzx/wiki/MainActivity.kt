@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -16,6 +17,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -108,8 +110,7 @@ private fun DemoPage(tab: Int) {
             )
         }
 
-        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
-            Spacer(Modifier.height(96.dp))
+        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {            Spacer(Modifier.height(96.dp))
             Text(
                 text = if (tab == 0) "底栏试验" else "设置",
                 color = Color.White,
@@ -131,6 +132,29 @@ private fun DemoPage(tab: Int) {
                     fontSize = 14.sp,
                     modifier = Modifier.padding(vertical = 10.dp),
                 )
+            }
+        }
+
+        // 底栏下面放几张卡片：折射要有边界才能看出来
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 30.dp)
+        ) {
+            repeat(3) { i ->
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF1C1922))
+                        .padding(14.dp)
+                ) {
+                    Text("示例条目 ${i + 4}", color = Color(0xFFEDE7F6), fontSize = 15.sp)
+                    Text("这段文字会被玻璃折射成两层", color = Color(0x99EDE7F6), fontSize = 12.sp)
+                }
             }
         }
     }

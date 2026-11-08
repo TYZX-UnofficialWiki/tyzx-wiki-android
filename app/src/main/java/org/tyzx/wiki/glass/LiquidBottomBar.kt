@@ -1,5 +1,8 @@
 package org.tyzx.wiki.glass
 
+import android.graphics.Bitmap
+import android.graphics.BitmapShader
+import android.graphics.Matrix
 import android.graphics.RuntimeShader
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -9,22 +12,21 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.layer.GraphicsLayer
-import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -40,21 +42,26 @@ data class BarItem(val label: String, val icon: ImageVector)
 
 private val TrackColor = Color(0xFF16151A)
 private val TrackBorder = Color(0x1FFFFFFF)
-private val PillColor = Color(0xFF2C2833)
+private val PillColor = Color(0xFF2A2630)
 private val Accent = Color(0xFFD0BCFF)
 private val Inactive = Color(0xFF8E8A99)
 
-private val BAR_H = 96.dp
+private val BAR_H = 84.dp
 private val TRACK_H = 64.dp
 private val PILL_H = 52.dp
-private val LENS_H = 78.dp
-private val H_PAD = 14.dp
+private val LENS_H = 74.dp
+private val H_PAD = 12.dp
+
+/** 截图缩放比：先降采样再用双线性放大，等于一层便宜的模糊 */
+private const val SNAPSHOT_SCALE = 0.5f
 
 /**
  * 底栏：静止是 Material 3 Expressive 的 tonal 胶囊；按下才“液化”成玻璃透镜，
  * 拖动时跟着手指走，松手凝固回平涂。
  *
- * [backdrop] 是下层内容的录制结果，透镜据此做模糊 + 折射 + 色散。
+ * 玻璃的取景方式是：按下瞬间把 [backdrop]（下层页面）抓成一张位图，
+ * 再用 AGSL 把这张位图按折射法线重新采样。不依赖任何层的实时回读，
+ * 采样坐标完全由 Matrix 决定，行为可预期。
  */
 @Composable
 fun LiquidBottomBar(
@@ -72,11 +79,11 @@ fun LiquidBottomBar(
     var dragging by remember { mutableStateOf(false) }
     var dragX by remember { mutableFloatStateOf(0f) }
     var stretchTarget by remember { mutableFloatStateOf(1f) }
+    var snapshot by remember { mutableStateOf<Bitmap?>(null) }
 
-    // 按下快（≈90ms 起）、松手慢（≈200ms 收），实测录屏 8 帧 ≈270ms
     val press by animateFloatAsState(
         targetValue = if (pressed) 1f else 0f,
-        animationSpec = tween(durationMillis = if (pressed) 90 else 200),
+        animationSpec = tween(durationMillis = if (pressed) 80 else 220),
         label = "press",
     )
     val stretch by animateFloatAsState(
@@ -98,7 +105,7 @@ fun LiquidBottomBar(
         val wPx = with(density) { maxWidth.toPx() }
         val hPadPx = with(density) { H_PAD.toPx() }
         val tabW = (wPx - hPadPx * 2f) / n
-        val pillWPx = tabW - with(density) { 12.dp.toPx() }
+        val pillWPx = tabW - with(density) { 10.dp.toPx() }
         val pillHPx = with(density) { PILL_H.toPx() }
         val lensHPx = with(density) { LENS_H.toPx() }
         val barHPx = with(density) { BAR_H.toPx() }
@@ -121,6 +128,21 @@ fun LiquidBottomBar(
                         pressed = true
                         dragging = true
                         dragX = startX
+
+                        // 按下即抓一帧页面，玻璃后面就是这一帧
+                        if (snapshot == null) {
+                            scope.launch {
+                                snapshot = runCatching {
+                                    val full = backdrop.toImageBitmap().asAndroidBitmap()
+                                    Bitmap.createScaledBitmap(
+                                        full,
+                                        (full.width * SNAPSHOT_SCALE).toInt(),
+                                        (full.height * SNAPSHOT_SCALE).toInt(),
+                                        true,
+                                    )
+                                }.getOrNull()
+                            }
+                        }
 
                         var lastX = startX
                         var lastUptime = down.uptimeMillis
@@ -156,6 +178,7 @@ fun LiquidBottomBar(
                                 targetValue = centerOf(target),
                                 animationSpec = spring(dampingRatio = 0.78f, stiffness = 420f),
                             )
+                            snapshot = null
                         }
                         if (target != selected) onSelected(target)
                     }
@@ -192,7 +215,7 @@ fun LiquidBottomBar(
                 }
             }
 
-            // 2. 图标与文字
+            // 2. 图标与文字（在玻璃下面，会被玻璃一起折射）
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -211,9 +234,9 @@ fun LiquidBottomBar(
                             imageVector = item.icon,
                             contentDescription = item.label,
                             tint = if (active) Accent else Inactive,
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(22.dp),
                         )
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(3.dp))
                         Text(
                             text = item.label,
                             color = if (active) Accent else Inactive,
@@ -225,13 +248,13 @@ fun LiquidBottomBar(
 
             // 3. 玻璃透镜
             if (press > 0.01f) {
-                val lensW = (pillWPx * stretch * (1f + 0.06f * press)).coerceAtLeast(1f)
+                val lensW = (pillWPx * stretch * (1f + 0.05f * press)).coerceAtLeast(1f)
                 val lensH = pillHPx + (lensHPx - pillHPx) * press
                 val left = currentX - lensW / 2f
                 val top = (barHPx - lensH) / 2f
 
                 GlassLens(
-                    backdrop = backdrop,
+                    snapshot = snapshot,
                     absoluteLeft = barOrigin.x + left,
                     absoluteTop = barOrigin.y + top,
                     alpha = press,
@@ -249,89 +272,85 @@ fun LiquidBottomBar(
 
 @Composable
 private fun GlassLens(
-    backdrop: GraphicsLayer,
+    snapshot: Bitmap?,
     absoluteLeft: Float,
     absoluteTop: Float,
     alpha: Float,
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
-    // 着色器编译失败也不该崩，降级成半透明平板
     val shader = remember { runCatching { RuntimeShader(LENS_AGSL) }.getOrNull() }
-    val blurRadiusPx = with(density) { 14.dp.toPx() }
-
-    // 先让 AGSL 做折射+色散，再整体柔化，接近录屏里“透过厚玻璃看”的糊感
-    val lensEffect = remember(shader, blurRadiusPx) {
-        shader?.let { s ->
-            runCatching {
-                android.graphics.RenderEffect.createChainEffect(
-                    android.graphics.RenderEffect.createRuntimeShaderEffect(s, "content"),
-                    android.graphics.RenderEffect.createBlurEffect(
-                        blurRadiusPx,
-                        blurRadiusPx,
-                        android.graphics.Shader.TileMode.CLAMP,
-                    ),
-                ).asComposeRenderEffect()
-            }.getOrNull()
-        }
+    val bitmapShader = remember(snapshot) {
+        snapshot?.let { BitmapShader(it, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP) }
     }
 
-    Box(
-        modifier.graphicsLayer {
-            lensEffect?.let { renderEffect = it }
-            clip = true
-            shape = RoundedCornerShape(percent = 50)
-            compositingStrategy = CompositingStrategy.Offscreen
-        }
-    ) {
+    Box(modifier) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
             if (w <= 0f || h <= 0f) return@Canvas
 
-            if (shader == null) {
-                drawRect(Color(0xFF2A2731).copy(alpha = 0.72f))
+            if (shader == null || bitmapShader == null) {
+                // 还没抓到帧 / 着色器不可用：先给一层磨砂，不闪不崩
+                drawRoundRect(color = Color(0x22FFFFFF))
                 return@Canvas
             }
 
+            val matrix = Matrix().apply {
+                setScale(SNAPSHOT_SCALE, SNAPSHOT_SCALE)
+                postTranslate(absoluteLeft * SNAPSHOT_SCALE, absoluteTop * SNAPSHOT_SCALE)
+            }
+            bitmapShader.setLocalMatrix(matrix)
+
+            shader.setInputShader("content", bitmapShader)
             shader.setFloatUniform("size", w, h)
             shader.setFloatUniform("cornerRadii", h / 2f, h / 2f, h / 2f, h / 2f)
-            shader.setFloatUniform("refractionHeight", 34.dp.toPx())
-            shader.setFloatUniform("refractionAmount", 20.dp.toPx())
-            shader.setFloatUniform("depthEffect", 0.22f)
-            shader.setFloatUniform("chromaticAberration", 1.15f)
+            shader.setFloatUniform("refractionHeight", 26.dp.toPx())
+            shader.setFloatUniform("refractionAmount", 14.dp.toPx())
+            shader.setFloatUniform("depthEffect", 0.18f)
+            shader.setFloatUniform("chromaticAberration", 0.9f)
 
-            translate(-absoluteLeft, -absoluteTop) {
-                drawLayer(backdrop)
+            drawIntoCanvas { canvas ->
+                val paint = android.graphics.Paint().apply {
+                    setShader(shader)
+                    isAntiAlias = true
+                    alpha = (alpha * 255).toInt()
+                }
+                val r = h / 2f
+                canvas.nativeCanvas.drawRoundRect(0f, 0f, w, h, r, r, paint)
             }
+
+            // 玻璃自身的奶白，别让折射把页面压暗
+            drawRoundRect(color = Color(0x0DFFFFFF), alpha = alpha)
         }
 
-        // 彩虹描边 + 高光
+        // 彩虹描边 + 内高光
         Canvas(Modifier.fillMaxSize()) {
-            val rimWidth = 2.2.dp.toPx()
+            val rimWidth = 1.6.dp.toPx()
             val brush = Brush.sweepGradient(
-                0.00f to Color(0xFFFF8A4C),
-                0.14f to Color(0xFFFF3D6E),
-                0.30f to Color(0xFF8B5CF6),
-                0.48f to Color(0xFF2DD4FF),
-                0.64f to Color(0xFF3B82F6),
-                0.80f to Color(0xFFA3E635),
-                1.00f to Color(0xFFFF8A4C),
+                0.00f to Color(0xFFFF9A5C),
+                0.13f to Color(0xFFFF4D7A),
+                0.29f to Color(0xFF9B6BFF),
+                0.47f to Color(0xFF35D6FF),
+                0.63f to Color(0xFF4C8DFF),
+                0.79f to Color(0xFFB6E85B),
+                1.00f to Color(0xFFFF9A5C),
             )
             drawRoundRect(
                 brush = brush,
-                alpha = alpha * 0.85f,
+                alpha = alpha * 0.55f,
                 style = Stroke(width = rimWidth),
             )
             drawRoundRect(
-                color = Color.White.copy(alpha = 0.16f * alpha),
+                color = Color.White.copy(alpha = 0.22f * alpha),
                 style = Stroke(width = 1.dp.toPx()),
             )
+            // 顶部内高光
             drawRoundRect(
                 brush = Brush.verticalGradient(
-                    colors = listOf(Color.White.copy(alpha = 0.10f * alpha), Color.Transparent),
+                    colors = listOf(Color.White.copy(alpha = 0.12f * alpha), Color.Transparent),
                 ),
-                style = Stroke(width = 3.dp.toPx()),
+                style = Stroke(width = 2.dp.toPx()),
             )
         }
     }
