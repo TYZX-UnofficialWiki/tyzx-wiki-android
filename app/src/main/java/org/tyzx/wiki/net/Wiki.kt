@@ -363,4 +363,41 @@ object Wiki {
         }
         return SaveResult(false, "保存失败", 0L)
     }
+
+    /** 讨论页 HTML；页面不存在时返回空串。 */
+    suspend fun talkHtml(title: String): String {
+        val t = "Talk:" + title
+        return try {
+            raw("$REST/page/" + enc(t) + "/html")
+        } catch (e: Exception) {
+            if (e.message?.contains("404") == true) "" else throw e
+        }
+    }
+
+    /** 在讨论页新开一节。 */
+    suspend fun addTopic(page: String, heading: String, body: String): SaveResult {
+        val j = post(
+            "action" to "edit",
+            "title" to "Talk:$page",
+            "section" to "new",
+            "sectiontitle" to heading,
+            "text" to body,
+            "summary" to heading,
+            "token" to csrf(),
+            "watchlist" to "nochange",
+        )
+        val e = j.optJSONObject("edit")
+        if (e?.optString("result") == "Success") return SaveResult(true, null, e.optLong("newrevid", 0L))
+        val err = j.optJSONObject("error")
+        return SaveResult(
+            false,
+            when (err?.optString("code")) {
+                "badtoken" -> "登录状态过期，请重新登录"
+                "blocked" -> "这个账号被封禁了"
+                null -> "发送失败"
+                else -> err.optString("info").ifBlank { err.optString("code") }
+            },
+            0L,
+        )
+    }
 }

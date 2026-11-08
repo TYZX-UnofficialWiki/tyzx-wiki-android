@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -57,6 +58,8 @@ fun ReaderScreen(
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
     onEdit: () -> Unit = {},
+    onDiscuss: () -> Unit = {},
+    onShare: () -> Unit = {},
     fontScale: Float = 1f,
 ) {
     val cs = MaterialTheme.colorScheme
@@ -75,7 +78,7 @@ fun ReaderScreen(
     }
 
     val doc = remember(html, cs, fontScale) {
-        html?.let { wrap(it, cs, fontScale) }
+        html?.let { wrapHtml(it, cs, fontScale) }
     }
 
     Column(Modifier.fillMaxSize().background(cs.background)) {
@@ -101,11 +104,25 @@ fun ReaderScreen(
                 modifier = Modifier.weight(1f),
             )
             Box(
-                Modifier.size(40.dp).clip(RoundedCornerShape(50)).background(cs.surfaceContainer)
-                    .clickable { onEdit() },
+                Modifier.height(34.dp).clip(RoundedCornerShape(50)).background(cs.surfaceContainer)
+                    .clickable { onDiscuss() }.padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.Edit, null, tint = cs.onSurface, modifier = Modifier.size(18.dp))
+                Text("讨论", fontSize = 13.sp, color = cs.onSurface, fontWeight = FontWeight.Medium)
+            }
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier.size(38.dp).clip(RoundedCornerShape(50)).clickable { onShare() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Share, null, tint = cs.onSurface, modifier = Modifier.size(19.dp))
+            }
+            Spacer(Modifier.width(2.dp))
+            Box(
+                Modifier.size(38.dp).clip(RoundedCornerShape(50)).clickable { onEdit() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Edit, null, tint = cs.onSurface, modifier = Modifier.size(19.dp))
             }
         }
 
@@ -207,7 +224,7 @@ fun ReaderScreen(
 }
 
 /** 注入主题 CSS：背景透明、配色跟 App 一致、图片自适应、表格可横滚。 */
-private fun wrap(body: String, cs: androidx.compose.material3.ColorScheme, fontScale: Float) = buildString {
+internal fun wrapHtml(body: String, cs: androidx.compose.material3.ColorScheme, fontScale: Float = 1f) = buildString {
     val bg = cs.background.toHex()
     val fg = cs.onSurface.toHex()
     val muted = cs.onSurfaceVariant.toHex()
@@ -244,7 +261,7 @@ private fun wrap(body: String, cs: androidx.compose.material3.ColorScheme, fontS
     append("</body></html>")
 }
 
-private fun Color.toHex(): String {
+internal fun Color.toHex(): String {
     val a = (alpha * 255).toInt()
     val r = (red * 255).toInt()
     val g = (green * 255).toInt()

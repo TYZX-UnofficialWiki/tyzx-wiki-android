@@ -59,6 +59,7 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import kotlinx.coroutines.launch
 import org.tyzx.wiki.net.Wiki
 import org.tyzx.wiki.ui.AuthScreen
+import org.tyzx.wiki.ui.DiscussionScreen
 import org.tyzx.wiki.ui.EditorScreen
 import org.tyzx.wiki.ui.ExploreScreen
 import org.tyzx.wiki.ui.HomeScreen
@@ -138,10 +139,12 @@ fun App() {
         var exploring by remember { mutableStateOf(false) }
         var authing by remember { mutableStateOf(false) }
         var editing by remember { mutableStateOf<String?>(null) }
+        var discussing by remember { mutableStateOf<String?>(null) }
         var tick by remember { mutableIntStateOf(0) }
         var account by remember { mutableStateOf(Wiki.user) }
 
-        BackHandler(enabled = reading != null && editing == null) { reading = null }
+        BackHandler(enabled = reading != null && editing == null && discussing == null) { reading = null }
+        BackHandler(enabled = discussing != null && editing == null) { discussing = null }
         BackHandler(enabled = reading == null && exploring && editing == null) { exploring = false }
         BackHandler(enabled = reading == null && !exploring && authing) { authing = false }
 
@@ -149,7 +152,14 @@ fun App() {
             Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
                 val title = reading
                 val editingTitle = editing
-                if (editingTitle != null) {
+                val discussingTitle = discussing
+                if (discussingTitle != null) {
+                    DiscussionScreen(
+                        title = discussingTitle,
+                        onBack = { discussing = null },
+                        onOpen = { discussing = null; reading = it },
+                    )
+                } else if (editingTitle != null) {
                     EditorScreen(
                         title = editingTitle,
                         onBack = { editing = null },
@@ -162,6 +172,18 @@ fun App() {
                             onBack = { reading = null },
                             onOpen = { reading = it },
                             onEdit = { editing = title },
+                            onDiscuss = { discussing = title },
+                            onShare = {
+                                val url = "https://wiki.tyzx.org/wiki/" +
+                                    java.net.URLEncoder.encode(title.replace(' ', '_'), "UTF-8")
+                                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_TEXT, "$title\n$url")
+                                }
+                                context.startActivity(
+                                    android.content.Intent.createChooser(send, "分享条目")
+                                )
+                            },
                         )
                     }
                 } else if (authing) {
@@ -185,7 +207,7 @@ fun App() {
                     )
                 }
             }
-            if (reading == null && !exploring && !authing && editing == null) {
+            if (reading == null && !exploring && !authing && editing == null && discussing == null) {
                 TyBottomBar(
                     tabs = Tabs,
                     selectedTabIndex = { tab },
