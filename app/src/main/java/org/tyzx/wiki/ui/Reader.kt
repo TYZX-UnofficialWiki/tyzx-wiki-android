@@ -61,6 +61,8 @@ fun ReaderScreen(
     onDiscuss: () -> Unit = {},
     onShare: () -> Unit = {},
     fontScale: Float = 1f,
+    readonly: Boolean = false,
+    externalInApp: Boolean = true,
 ) {
     val cs = MaterialTheme.colorScheme
     val context = LocalContext.current
@@ -117,12 +119,14 @@ fun ReaderScreen(
             ) {
                 Icon(Icons.Filled.Share, null, tint = cs.onSurface, modifier = Modifier.size(19.dp))
             }
-            Spacer(Modifier.width(2.dp))
-            Box(
-                Modifier.size(38.dp).clip(RoundedCornerShape(50)).clickable { onEdit() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Filled.Edit, null, tint = cs.onSurface, modifier = Modifier.size(19.dp))
+            if (!readonly) {
+                Spacer(Modifier.width(2.dp))
+                Box(
+                    Modifier.size(38.dp).clip(RoundedCornerShape(50)).clickable { onEdit() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Edit, null, tint = cs.onSurface, modifier = Modifier.size(19.dp))
+                }
             }
         }
 
@@ -190,6 +194,7 @@ fun ReaderScreen(
                                     }
                                     return false
                                 }
+                                if (externalInApp) return false
                                 runCatching {
                                     ctx.startActivity(Intent(Intent.ACTION_VIEW, uri))
                                 }

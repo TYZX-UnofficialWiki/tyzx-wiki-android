@@ -146,6 +146,11 @@ fun App() {
         var discussing by remember { mutableStateOf<String?>(null) }
         var tick by remember { mutableIntStateOf(0) }
         var account by remember { mutableStateOf(Wiki.user) }
+    val store = remember { context.getSharedPreferences("tyzx_prefs", android.content.Context.MODE_PRIVATE) }
+    var fontStep by remember { mutableIntStateOf(store.getInt("font_step", 1).coerceIn(0, 3)) }
+    var readonly by remember { mutableStateOf(store.getBoolean("readonly", false)) }
+    var externalInApp by remember { mutableStateOf(store.getBoolean("external_in_app", true)) }
+    val fontScale = listOf(0.9f, 1f, 1.15f, 1.3f)[fontStep]
 
         BackHandler(enabled = reading != null && editing == null && discussing == null) { reading = null }
         BackHandler(enabled = discussing != null && editing == null) { discussing = null }
@@ -181,6 +186,9 @@ fun App() {
                             title = title,
                             onBack = { reading = null },
                             onOpen = { reading = it },
+                            fontScale = fontScale,
+                            readonly = readonly,
+                            externalInApp = externalInApp,
                             onEdit = { editPick = title },
                             onDiscuss = { discussing = title },
                             onShare = {
@@ -214,6 +222,21 @@ fun App() {
                             scope.launch { Wiki.logout() }
                             account = null
                         },
+                        fontStep = fontStep,
+                        onFontStep = {
+                            fontStep = (fontStep + 1) % 4
+                            store.edit().putInt("font_step", fontStep).apply()
+                        },
+                        readonly = readonly,
+                        onReadonly = {
+                            readonly = !readonly
+                            store.edit().putBoolean("readonly", readonly).apply()
+                        },
+                        externalInApp = externalInApp,
+                        onExternal = {
+                            externalInApp = !externalInApp
+                            store.edit().putBoolean("external_in_app", externalInApp).apply()
+                        },
                     )
                 }
             }
@@ -245,6 +268,12 @@ private fun SettingsPage(
     account: String?,
     onAuth: () -> Unit,
     onLogout: () -> Unit,
+    fontStep: Int,
+    onFontStep: () -> Unit,
+    readonly: Boolean,
+    onReadonly: () -> Unit,
+    externalInApp: Boolean,
+    onExternal: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -294,7 +323,12 @@ private fun SettingsPage(
                     onClick = { onDynamicChange(!dynamic) },
                 )
                 Hairline()
-                SettingRow("字号", "跟随系统", "标准")
+                SettingRow(
+                    title = "字号",
+                    subtitle = "正文大小",
+                    trailing = listOf("小", "标准", "大", "特大")[fontStep.coerceIn(0, 3)],
+                    onClick = onFontStep,
+                )
             }
         }
 
@@ -302,9 +336,19 @@ private fun SettingsPage(
         item { SectionLabel("阅读") }
         item {
             GroupCard {
-                SettingRow("只读模式", "不提供编辑入口", "关")
+                SettingRow(
+                    title = "只读模式",
+                    subtitle = "不提供编辑入口",
+                    trailing = if (readonly) "开" else "关",
+                    onClick = onReadonly,
+                )
                 Hairline()
-                SettingRow("外链", "在应用内打开", "开")
+                SettingRow(
+                    title = "外链",
+                    subtitle = if (externalInApp) "在应用内打开" else "交给浏览器",
+                    trailing = if (externalInApp) "开" else "关",
+                    onClick = onExternal,
+                )
             }
         }
 
