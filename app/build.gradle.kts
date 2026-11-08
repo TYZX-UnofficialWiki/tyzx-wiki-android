@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "org.tyzx.wiki"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.tyzx.wiki"
         minSdk = 33
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "0.0.1"
     }
@@ -37,18 +37,24 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
 dependencies {
-    val bom = platform("androidx.compose:compose-bom:2024.10.01")
-    implementation(bom)
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.activity:activity-compose:1.9.3")
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.compose.ui:ui:1.12.0")
+    implementation("androidx.compose.ui:ui-graphics:1.12.0")
+    implementation("androidx.compose.foundation:foundation:1.12.0")
+    implementation("androidx.compose.material3:material3:1.5.0-rc01")
+    implementation("androidx.compose.material:material-icons-core:1.7.8")
+    // 液态玻璃：Kyant0/AndroidLiquidGlass（Apache-2.0），BiliTools 用的就是它
+    implementation("io.github.kyant0:backdrop:2.0.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

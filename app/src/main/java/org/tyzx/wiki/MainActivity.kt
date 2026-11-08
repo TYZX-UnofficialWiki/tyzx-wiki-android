@@ -18,17 +18,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.tyzx.wiki.glass.BarItem
-import org.tyzx.wiki.glass.LiquidBottomBar
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import org.tyzx.wiki.glass.TyBottomBar
+import org.tyzx.wiki.glass.TyTab
+import org.tyzx.wiki.glass.liquidtabs.LiquidGlassStyle
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,41 +40,40 @@ class MainActivity : ComponentActivity() {
 
 private val DarkColors = darkColorScheme(
     primary = Color(0xFFD0BCFF),
+    onSurfaceVariant = Color(0xFF0E4C52),
     background = Color(0xFF0F0D13),
     surface = Color(0xFF0F0D13),
+)
+
+private val Tabs = listOf(
+    TyTab("首页", Icons.Filled.Home),
+    TyTab("设置", Icons.Filled.Settings),
 )
 
 @Composable
 fun App() {
     MaterialTheme(colorScheme = DarkColors) {
-        val backdrop = rememberGraphicsLayer()
+        val backdrop = rememberLayerBackdrop()
         var tab by remember { mutableIntStateOf(0) }
 
         Box(Modifier.fillMaxSize().background(Color(0xFF0F0D13))) {
-            // 页面内容：录制成 backdrop，供底栏透镜采样
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .drawWithContent {
-                        backdrop.record { this@drawWithContent.drawContent() }
-                        drawLayer(backdrop)
-                    }
-            ) {
+            // 页面内容录进 backdrop，底栏玻璃从这里采样
+            Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
                 DemoPage(tab)
             }
 
-            LiquidBottomBar(
-                items = listOf(
-                    BarItem("首页", Icons.Filled.Home),
-                    BarItem("设置", Icons.Filled.Settings),
-                ),
-                selected = tab,
-                onSelected = { tab = it },
+            TyBottomBar(
+                tabs = Tabs,
+                selectedTabIndex = { tab },
+                onTabSelected = { tab = it },
                 backdrop = backdrop,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = 8.dp),
+                glassStyle = LiquidGlassStyle(
+                    blurRadiusDp = 6f,
+                    refractionHeightDp = 20f,
+                    refractionAmountFrac = 0.35f,
+                    chromaticAberration = true,
+                ),
+                surfaceAlpha = 0.22f,
             )
         }
     }
@@ -91,7 +90,6 @@ private fun DemoPage(tab: Int) {
                 )
             )
     ) {
-        // 底栏附近放几个彩色圆斑，折射与色散才看得出来
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(
                 color = Color(0xFF7C4DFF).copy(alpha = 0.55f),
@@ -103,14 +101,10 @@ private fun DemoPage(tab: Int) {
                 radius = 200.dp.toPx(),
                 center = Offset(size.width * 0.88f, size.height * 0.82f),
             )
-            drawCircle(
-                color = Color(0xFFFF7A45).copy(alpha = 0.30f),
-                radius = 150.dp.toPx(),
-                center = Offset(size.width * 0.52f, size.height * 0.92f),
-            )
         }
 
-        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {            Spacer(Modifier.height(96.dp))
+        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
+            Spacer(Modifier.height(96.dp))
             Text(
                 text = if (tab == 0) "底栏试验" else "设置",
                 color = Color.White,
@@ -135,7 +129,7 @@ private fun DemoPage(tab: Int) {
             }
         }
 
-        // 底栏下面放几张卡片：折射要有边界才能看出来
+        // 底栏正下方放带文字的卡片：玻璃要有边界才看得出折射
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
