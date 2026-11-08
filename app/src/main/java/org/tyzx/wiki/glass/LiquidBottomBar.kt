@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -314,7 +315,7 @@ private fun GlassLens(
                 val paint = android.graphics.Paint().apply {
                     setShader(shader)
                     isAntiAlias = true
-                    alpha = (alpha * 255).toInt()
+                    this.alpha = (alpha * 255).toInt()
                 }
                 val r = h / 2f
                 canvas.nativeCanvas.drawRoundRect(0f, 0f, w, h, r, r, paint)
