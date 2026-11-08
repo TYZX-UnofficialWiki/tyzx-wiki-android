@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,6 +59,9 @@ fun AuthScreen(
     var busy by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<String?>(null) }
     var okMsg by remember { mutableStateOf<String?>(null) }
+    var captcha by remember { mutableStateOf<Wiki.RegCaptcha?>(null) }
+    var captchaWord by remember { mutableStateOf("") }
+    var captchaImg by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
         Row(
@@ -107,6 +111,30 @@ fun AuthScreen(
                 )
             }
 
+            val cap = captcha
+            if (cap != null) {
+                Spacer(Modifier.height(14.dp))
+                Text("站点要求验证码", fontSize = 13.sp, color = cs.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                val bmp = captchaImg
+                if (bmp != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = bmp.asImageBitmap(),
+                        contentDescription = "验证码",
+                        modifier = Modifier
+                            .height(64.dp)
+                            .clip(RoundedCornerShape(10.dp)),
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Field(
+                    value = captchaWord,
+                    onChange = { captchaWord = it },
+                    label = "看图填字",
+                    enabled = !busy,
+                )
+            }
+
             if (msg != null) {
                 Spacer(Modifier.height(14.dp))
                 Text(msg!!, fontSize = 13.sp, color = cs.error)
@@ -128,15 +156,28 @@ fun AuthScreen(
                     msg = null
                     scope.launch {
                         if (register) {
-                            val r = Wiki.register(name.trim(), pass, email.trim())
+                            val r = Wiki.register(
+                                name.trim(), pass, email.trim(), captcha, captchaWord,
+                            )
                             busy = false
                             if (r.ok) {
                                 okMsg = "注册成功，已登录"
                                 onDone(Wiki.user ?: name.trim())
                             } else {
                                 msg = r.error
-                                if (r.captcha) {
-                                    msg = "站点要求输入验证码。请先在浏览器里注册一次，再用这里的“登录”。"
+                                captcha = r.captcha
+                                captchaWord = ""
+                                captchaImg = null
+                                val url = r.captcha?.imageUrl
+                                if (url != null) {
+                                    runCatching {
+                                        val bytes = Wiki.fetchBytes(url)
+                                        android.graphics.BitmapFactory.decodeByteArray(
+                                            bytes, 0, bytes.size,
+                                        )
+                                    }.onSuccess { captchaImg = it }
+                                } else if (r.captcha != null) {
+                                    msg = "验证码图片拿不到，请先在浏览器里注册一次。"
                                 }
                             }
                         } else {

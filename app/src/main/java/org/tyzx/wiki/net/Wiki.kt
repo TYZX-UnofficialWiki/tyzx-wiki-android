@@ -293,11 +293,24 @@ object Wiki {
         user = null
     }
 
-    data class RegResult(val error: String?, val captcha: Boolean, val ok: Boolean)
+    /** 注册时可能拿到的验证码（ConfirmEdit）。 */
+    data class RegCaptcha(val id: String?, val imageUrl: String?)
 
-    suspend fun register(name: String, pass: String, email: String): RegResult {
+    data class RegResult(
+        val error: String?,
+        val captcha: RegCaptcha?,
+        val ok: Boolean,
+    )
+
+    suspend fun register(
+        name: String,
+        pass: String,
+        email: String,
+        captcha: RegCaptcha? = null,
+        captchaWord: String? = null,
+    ): RegResult {
         val t = token("createaccount")
-        val j = post(
+        val params = mutableListOf(
             "action" to "createaccount",
             "createreturnurl" to HOST,
             "createtoken" to t,
@@ -307,17 +320,56 @@ object Wiki {
             "email" to email,
             "realname" to "",
         )
-        val r = j.optJSONObject("createaccount")
-        val status = r?.optString("status").orEmpty()
-        if (status == "PASS") {
-            user = r?.optString("username")?.ifBlank { name }
-            return RegResult(null, false, true)
+        if (captcha != null) {
+            params += "captchaId" to (captcha.id ?: "")
+            params += "captchaWord" to (captchaWord ?: "")
         }
+        val j = post(*params.toTypedArray())
+        val r = j.optJSONObject("createaccount")
+        if (r?.optString("status") == "PASS") {
+            user = r.optString("username").ifBlank { name }
+            return RegResult(null, null, true)
+        }
+
+        // AuthManager 把验证码塞在 requests[].fields 里
+        var captchaNow: RegCaptcha? = null
+        val reqs = r?.optJSONArray("requests")
+        if (reqs != null && reqs.length() > 0) {
+            val f = reqs.optJSONObject(0)?.optJSONObject("fields")
+            val id = f?.optJSONObject("captchaId")?.optString("value")
+            val info = f?.optJSONObject("captchaInfo")?.optString("value").orEmpty()
+            val src = Regex("src=\"([^\"]+)\"").find(info)?.groupValues?.get(1)
+            if (id != null || src != null) {
+                captchaNow = RegCaptcha(
+                    id = id,
+                    imageUrl = src?.let { if (it.startsWith("http")) it else HOST + it },
+                )
+            }
+        }
+
         val msg = r?.optString("message")?.ifBlank { null }
             ?: r?.optJSONObject("message")?.optString("text")
+            ?: j.optJSONObject("error")?.optString("info")
             ?: "注册失败"
-        val needsCaptcha = msg.contains("captcha", true) || msg.contains("验证", true) || r?.has("captcha") == true
-        return RegResult(msg, needsCaptcha, false)
+        return RegResult(msg, captchaNow, false)
+    }
+
+    /** 带会话 cookie 取二进制（验证码图片用）。 */
+    suspend fun fetchBytes(url: String): ByteArray = withContext(Dispatchers.IO) {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15000
+            readTimeout = 20000
+            setRequestProperty("User-Agent", UA)
+            cookieHeader()?.let { setRequestProperty("Cookie", it) }
+        }
+        try {
+            val code = conn.responseCode
+            rememberCookies(conn)
+            if (code !in 200..299) error("HTTP $code")
+            conn.inputStream.use { it.readBytes() }
+        } finally {
+            conn.disconnect()
+        }
     }
 
     suspend fun csrf(): String = token("csrf")
