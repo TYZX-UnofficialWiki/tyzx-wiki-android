@@ -12,9 +12,11 @@
 
 每次推送到 `main` 自动构建，产物永远覆盖在同一个地址：
 
-**https://github.com/TYZX-UnofficialWiki/tyzx-wiki-android/releases/tag/latest**
+**https://github.com/TYZX-UnofficialWiki/tyzx-wiki-android/releases**
 
-直链：`releases/download/latest/app-debug.apk`
+每次构建的版本号是 `0.3.<CI 构建序号>`（例如 `0.3.146`），tag 与之同名，取最新一版：
+
+直链：`https://github.com/TYZX-UnofficialWiki/tyzx-wiki-android/releases/latest/download/app-debug.apk`
 
 - 调试签名（`app/debug.p12`，口令 `tyzxdebug`），仅供测试
 - 需要 Android 13（API 33）及以上

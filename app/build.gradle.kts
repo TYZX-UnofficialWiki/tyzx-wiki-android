@@ -15,8 +15,10 @@ android {
         applicationId = "org.tyzx.wiki"
         minSdk = 33
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.0.1"
+        // CI 用 run number 当补丁号：0.3.<build>，本地构建是 0.3.0-dev
+        val build = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 0
+        versionCode = if (build > 0) 3000 + build else 1
+        versionName = if (build > 0) "0.3.$build" else "0.3.0-dev"
     }
 
     signingConfigs {

@@ -19,6 +19,8 @@ jobs:
         with:
           gradle-version: '9.7.1'
       - name: Build debug APK
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
@@ -28,12 +30,13 @@ jobs:
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: 最新构建
+          tag_name: v0.3.${{ github.run_number }}
+          name: v0.3.${{ github.run_number }}
           make_latest: true
           body: |
-            自动构建，每次 push 到 main 都会更新这个 release。
+            由 main 分支自动构建。
 
+            - 版本：`0.3.${{ github.run_number }}`
             - 提交：`${{ github.sha }}`
             - 说明：${{ github.event.head_commit.message }}
             - 时间：${{ github.event.head_commit.timestamp }}

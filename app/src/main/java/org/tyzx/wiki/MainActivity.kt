@@ -123,8 +123,21 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun App() {
     val context = LocalContext.current
-    var dark by remember { mutableStateOf(false) }
-    var dynamic by remember { mutableStateOf(false) }
+    val store = remember { context.getSharedPreferences("tyzx_prefs", android.content.Context.MODE_PRIVATE) }
+    val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    // 0 跟随系统 / 1 浅色 / 2 深色
+    var themeMode by remember { mutableIntStateOf(store.getInt("theme_mode", 0).coerceIn(0, 2)) }
+    val dark = when (themeMode) {
+        0 -> systemDark
+        1 -> false
+        else -> true
+    }
+    val versionName = remember {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull() ?: "?"
+    }
+    var dynamic by remember { mutableStateOf(store.getBoolean("dynamic", false)) }
     val scheme = when {
         dynamic && dark -> dynamicDarkColorScheme(context)
         dynamic -> dynamicLightColorScheme(context)
@@ -146,7 +159,6 @@ fun App() {
         var discussing by remember { mutableStateOf<String?>(null) }
         var tick by remember { mutableIntStateOf(0) }
         var account by remember { mutableStateOf(Wiki.user) }
-    val store = remember { context.getSharedPreferences("tyzx_prefs", android.content.Context.MODE_PRIVATE) }
     var fontStep by remember { mutableIntStateOf(store.getInt("font_step", 1).coerceIn(0, 3)) }
     var readonly by remember { mutableStateOf(store.getBoolean("readonly", false)) }
     var externalInApp by remember { mutableStateOf(store.getBoolean("external_in_app", true)) }
@@ -212,10 +224,17 @@ fun App() {
                     HomeScreen(onOpen = { reading = it }, onSearch = { exploring = true })
                 } else {
                     SettingsPage(
-                        dark = dark,
+                        themeMode = themeMode,
+                        versionName = versionName,
                         dynamic = dynamic,
-                        onDarkChange = { dark = it },
-                        onDynamicChange = { dynamic = it },
+                        onThemeMode = {
+                            themeMode = (themeMode + 1) % 3
+                            store.edit().putInt("theme_mode", themeMode).apply()
+                        },
+                        onDynamicChange = {
+                            dynamic = !dynamic
+                            store.edit().putBoolean("dynamic", dynamic).apply()
+                        },
                         account = account,
                         onAuth = { authing = true },
                         onLogout = {
@@ -261,10 +280,11 @@ fun App() {
 
 @Composable
 private fun SettingsPage(
-    dark: Boolean,
+    themeMode: Int,
+    versionName: String,
     dynamic: Boolean,
-    onDarkChange: (Boolean) -> Unit,
-    onDynamicChange: (Boolean) -> Unit,
+    onThemeMode: () -> Unit,
+    onDynamicChange: () -> Unit,
     account: String?,
     onAuth: () -> Unit,
     onLogout: () -> Unit,
@@ -310,17 +330,21 @@ private fun SettingsPage(
         item {
             GroupCard {
                 SettingRow(
-                    title = "主题",
-                    subtitle = if (dark) "深色" else "浅色",
-                    trailing = "切换",
-                    onClick = { onDarkChange(!dark) },
+                    title = "外观",
+                    subtitle = when (themeMode) {
+                        0 -> "跟随系统"
+                        1 -> "始终浅色"
+                        else -> "始终深色"
+                    },
+                    trailing = listOf("跟随系统", "浅色", "深色")[themeMode.coerceIn(0, 2)],
+                    onClick = onThemeMode,
                 )
                 Hairline()
                 SettingRow(
                     title = "动态取色",
                     subtitle = if (dynamic) "跟随壁纸（Material You）" else "使用天一紫",
                     trailing = if (dynamic) "开" else "关",
-                    onClick = { onDynamicChange(!dynamic) },
+                    onClick = onDynamicChange,
                 )
                 Hairline()
                 SettingRow(
@@ -356,7 +380,7 @@ private fun SettingsPage(
         item { SectionLabel("关于") }
         item {
             GroupCard {
-                SettingRow("版本", "0.2.0", "")
+                SettingRow("版本", versionName, "")
                 Hairline()
                 SettingRow("开源许可", "GPL-3.0 · 含 BiliTools、Backdrop", "")
                 Hairline()
