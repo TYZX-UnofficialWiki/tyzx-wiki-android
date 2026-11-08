@@ -147,7 +147,7 @@ fun AuthScreen(
                     }
                 },
                 enabled = !busy,
-                Modifier.fillMaxWidth().height(52.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(26.dp),
             ) {
                 if (busy) {

@@ -227,8 +227,6 @@ object Wiki {
             .filter { it.isNotBlank() }
     }
 
-    private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
-
     suspend fun post(vararg params: Pair<String, String>): JSONObject = withContext(Dispatchers.IO) {
         val body = buildString {
             append("format=json&formatversion=2")
