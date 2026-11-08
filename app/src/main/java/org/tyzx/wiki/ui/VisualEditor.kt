@@ -60,6 +60,7 @@ fun VisualEditorScreen(
 ) {
     val cs = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
+    var askDiscard by remember { mutableStateOf(false) }
     BackHandler(enabled = !askDiscard) { askDiscard = true }
 
     var doc by remember(title) { mutableStateOf<String?>(null) }
@@ -67,7 +68,6 @@ fun VisualEditorScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var web by remember { mutableStateOf<WebView?>(null) }
-    var askDiscard by remember { mutableStateOf(false) }
     var linking by remember { mutableStateOf(false) }
     var linkUrl by remember { mutableStateOf("") }
 
